@@ -48,6 +48,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("listening for connections")
 
 	defer listener.Close()
 	for {
