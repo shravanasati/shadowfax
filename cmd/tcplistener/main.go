@@ -7,10 +7,10 @@ import (
 	"net"
 )
 
-func getLinesChannel(f io.ReadCloser) <-chan string {
+func getLinesChannel(f io.ReadCloser, bufSize int, sep []byte) <-chan string {
 	ch := make(chan string)
 	go func ()  {
-		buffer := make([]byte, 8)
+		buffer := make([]byte, bufSize)
 		eof := false
 		part := ""
 		for !eof {
@@ -23,12 +23,12 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 				panic(err)
 			}
 	
-			newlinePos := bytes.IndexByte(buffer[:n], '\n')
-			if newlinePos != -1 {
+			sepPos := bytes.Index(buffer[:n], sep)
+			if sepPos != -1 {
 				// found a newline
-				part += string(buffer[:newlinePos])
+				part += string(buffer[:sepPos])
 				ch <- part
-				part = string(buffer[newlinePos+1 : n])
+				part = string(buffer[sepPos+len(sep) : n])
 			} else {
 				part += string(buffer[:n])
 			}
@@ -57,7 +57,7 @@ func main() {
 			panic(err)
 		}
 		fmt.Println("a connection has been accepted", conn.RemoteAddr().String())
-		lines := getLinesChannel(conn)
+		lines := getLinesChannel(conn, 8, []byte("\n"))
 		for line := range lines {
 			fmt.Println(line)
 		}
