@@ -15,7 +15,7 @@ func (h Headers) Add(key, value string) {
 	key = strings.ToLower(key)
 	if existing, ok := h[key]; ok {
 		// multiple values
-		h[key] = existing + "," + value
+		h[key] = existing + ", " + value
 	} else {
 		h[key] = value
 	}
