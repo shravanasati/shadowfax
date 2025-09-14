@@ -9,28 +9,30 @@ import (
 // https://datatracker.ietf.org/doc/html/rfc9110#name-tokens
 var fieldNameRegex = regexp.MustCompile(`^[a-zA-Z0-9!#$%&'*\+\-.^_\x60\|~]+$`)
 
-type Headers map[string]string
+type Headers struct {
+	headers map[string]string
+}
 
-func (h Headers) Add(key, value string) {
+func (h *Headers) Add(key, value string) {
 	key = strings.ToLower(key)
-	if existing, ok := h[key]; ok {
+	if existing, ok := h.headers[key]; ok {
 		// multiple values
-		h[key] = existing + ", " + value
+		h.headers[key] = existing + ", " + value
 	} else {
-		h[key] = value
+		h.headers[key] = value
 	}
 }
 
-func (h Headers) Get(key string) (string, error) {
+func (h *Headers) Get(key string) (string, error) {
 	key = strings.ToLower(key)
-	existing, ok := h[key]
+	existing, ok := h.headers[key]
 	if !ok {
 		return "", ErrHeaderNotFound
 	}
 	return existing, nil
 }
 
-func (h Headers) ParseLine(data []byte) (err error) {
+func (h *Headers) ParseLine(data []byte) (err error) {
 	colonPos := bytes.IndexByte(data, ':')
 	if colonPos == -1 {
 		// colon not found
@@ -54,6 +56,8 @@ func (h Headers) ParseLine(data []byte) (err error) {
 	return nil
 }
 
-func NewHeaders() Headers {
-	return map[string]string{}
+func NewHeaders() *Headers {
+	return &Headers{
+		headers: map[string]string{},
+	}
 }
