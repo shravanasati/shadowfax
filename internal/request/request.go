@@ -17,7 +17,6 @@ const (
 	PUT     MethodType = "PUT"
 	PATCH   MethodType = "PATCH"
 	DELETE  MethodType = "DELETE"
-	CONNECT MethodType = "CONNECT"
 	TRACE   MethodType = "TRACE"
 	OPTIONS MethodType = "OPTIONS"
 )
@@ -37,7 +36,7 @@ type Request struct {
 	Body        []byte
 }
 
-var requestLineRegex = regexp.MustCompile(`^(GET|POST|PUT|PATCH|OPTIONS|TRACE|DELETE|HEAD|CONNECT) ([^\s]*) HTTP\/1.1$`)
+var requestLineRegex = regexp.MustCompile(`^(GET|POST|PUT|PATCH|OPTIONS|TRACE|DELETE|HEAD) ([^\s]*) HTTP\/1.1$`)
 
 func parseRequestLine(reqLine []byte) (*RequestLine, error) {
 	matches := requestLineRegex.FindSubmatch(reqLine)
@@ -67,6 +66,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		if bytes.Equal(token, emptyByteSlice) {
 			// encountered a double CRLF, headers over
 			headersFinished = true
+			continue
 		}
 		if lineCount == 1 {
 			requestLine, err = parseRequestLine(token)
