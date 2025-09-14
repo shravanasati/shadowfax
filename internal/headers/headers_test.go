@@ -18,6 +18,11 @@ func TestHeaderParsing(t *testing.T) {
 	hval, herr := headers.Get("Host")
 	require.NoError(t, herr)
 	assert.Equal(t, "localhost:42069", hval)
+	// Test: Missing Headers
+	hval2, herr2 := headers.Get("Missing")
+	require.Error(t, herr2)
+	assert.Equal(t, hval2, "")
+	
 
 	// Test: Valid single header with extra whitespace
 	headers = NewHeaders()

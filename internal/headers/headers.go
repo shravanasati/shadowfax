@@ -55,6 +55,5 @@ func (h Headers) ParseLine(data []byte) (err error) {
 }
 
 func NewHeaders() Headers {
-	h := map[string]string{}
-	return h
+	return map[string]string{}
 }

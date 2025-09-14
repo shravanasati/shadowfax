@@ -4,3 +4,5 @@
 
 
 An HTTP/1.1 server built on top of TCP using Go.
+
+NOT for production usage, built for educational purposes.
