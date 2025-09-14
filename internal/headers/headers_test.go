@@ -31,7 +31,7 @@ func TestHeaderParsing(t *testing.T) {
 
 	// Test: Valid 2 headers with existing headers
 	headers = NewHeaders()
-	headers["user-agent"] = "curl/7.81.0"
+	headers.Add("User-Agent", "curl/7.81.0")
 	data = []byte("Host: localhost:42069")
 	err = headers.ParseLine(data)
 	require.NoError(t, err)
@@ -55,8 +55,15 @@ func TestHeaderParsing(t *testing.T) {
 	require.Error(t, err)
 
 	// Test: Invalid spacing header
+	// https://datatracker.ietf.org/doc/html/rfc9112#section-5
 	headers = NewHeaders()
 	data = []byte("       Host : localhost:42069       ")
+	err = headers.ParseLine(data)
+	require.Error(t, err)
+
+	// Test: Invalid character in header key
+	headers = NewHeaders()
+	data = []byte("H©st: localhost:42069")
 	err = headers.ParseLine(data)
 	require.Error(t, err)
 }
