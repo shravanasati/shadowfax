@@ -26,6 +26,10 @@ func main() {
 			fmt.Println("error parsing the request:", err)
 		} else {
 			fmt.Printf("Request line: \n\t- Method: %s \n\t- Target: %s \n\t- HTTP Version: %s \n", req.RequestLine.Method, req.RequestLine.Target, req.RequestLine.HTTPVersion)
+			fmt.Printf("Headers: \n")
+			for key, val := range req.Headers.All() {
+				fmt.Printf("\t- %s: %s \n", key, val)
+			}
 		}
 		fmt.Println("a connection has been closed")
 	}

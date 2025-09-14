@@ -2,6 +2,8 @@ package headers
 
 import (
 	"bytes"
+	"iter"
+	"maps"
 	"regexp"
 	"strings"
 )
@@ -23,9 +25,13 @@ func (h *Headers) Add(key, value string) {
 	}
 }
 
-func (h *Headers) Get(key string) (string) {
+func (h *Headers) Get(key string) string {
 	key = strings.ToLower(key)
 	return h.headers[key]
+}
+
+func (h *Headers) All() iter.Seq2[string, string] {
+	return maps.All(h.headers)
 }
 
 func (h *Headers) ParseLine(data []byte) (err error) {
