@@ -15,14 +15,11 @@ func TestHeaderParsing(t *testing.T) {
 	err := headers.ParseLine(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	hval, herr := headers.Get("Host")
-	require.NoError(t, herr)
+	hval := headers.Get("Host")
 	assert.Equal(t, "localhost:42069", hval)
 	// Test: Missing Headers
-	hval2, herr2 := headers.Get("Missing")
-	require.Error(t, herr2)
+	hval2 := headers.Get("Missing")
 	assert.Equal(t, hval2, "")
-	
 
 	// Test: Valid single header with extra whitespace
 	headers = NewHeaders()
@@ -30,8 +27,7 @@ func TestHeaderParsing(t *testing.T) {
 	err = headers.ParseLine(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	hval, herr = headers.Get("Host")
-	require.NoError(t, herr)
+	hval = headers.Get("Host")
 	assert.Equal(t, "localhost:42069", hval)
 
 	// Test: Valid 2 headers with existing headers
@@ -44,14 +40,11 @@ func TestHeaderParsing(t *testing.T) {
 	err = headers.ParseLine(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	hval, herr = headers.Get("Host")
-	require.NoError(t, herr)
+	hval = headers.Get("Host")
 	assert.Equal(t, "localhost:42069", hval)
-	hval, herr = headers.Get("Accept")
-	require.NoError(t, herr)
+	hval = headers.Get("Accept")
 	assert.Equal(t, "*/*", hval)
-	hval, herr = headers.Get("User-Agent")
-	require.NoError(t, herr)
+	hval = headers.Get("User-Agent")
 	assert.Equal(t, "curl/7.81.0", hval)
 
 	headers = NewHeaders()
@@ -80,7 +73,6 @@ func TestHeaderParsing(t *testing.T) {
 	data = []byte("Accept: application/json")
 	err = headers.ParseLine(data)
 	require.NoError(t, err)
-	hval, herr = headers.Get("Accept")
-	require.NoError(t, herr)
+	hval = headers.Get("Accept")
 	assert.Equal(t, "text/html, application/json", hval)
 }

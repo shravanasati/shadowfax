@@ -33,7 +33,7 @@ type RequestLine struct {
 
 type Request struct {
 	RequestLine RequestLine
-	Headers     map[string]string
+	Headers     headers.Headers
 	Body        []byte
 }
 
@@ -64,7 +64,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	for scanner.Scan() {
 		token := scanner.Bytes()
 		lineCount++
-		if bytes.Equal(token, emptyByteSlice){
+		if bytes.Equal(token, emptyByteSlice) {
 			// encountered a double CRLF, headers over
 			headersFinished = true
 		}
@@ -75,13 +75,19 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 			}
 		} else {
 			if !headersFinished {
-				headers.ParseLine(token)
+				err := headers.ParseLine(token)
+				if err != nil {
+					return nil, err
+				}
 			} else {
 				// parse body
-				// panic("body parsing not implemented")
 			}
 		}
 	}
 
-	return &Request{RequestLine: *requestLine}, nil
+	if !headersFinished {
+		return nil, ErrIncompleteRequest
+	}
+
+	return &Request{RequestLine: *requestLine, Headers: *headers}, nil
 }

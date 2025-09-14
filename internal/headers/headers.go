@@ -23,13 +23,9 @@ func (h *Headers) Add(key, value string) {
 	}
 }
 
-func (h *Headers) Get(key string) (string, error) {
+func (h *Headers) Get(key string) (string) {
 	key = strings.ToLower(key)
-	existing, ok := h.headers[key]
-	if !ok {
-		return "", ErrHeaderNotFound
-	}
-	return existing, nil
+	return h.headers[key]
 }
 
 func (h *Headers) ParseLine(data []byte) (err error) {
