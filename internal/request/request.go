@@ -1,8 +1,11 @@
 package request
 
 import (
+	"bytes"
 	"io"
 	"regexp"
+
+	"github.com/shravanasati/shadowfax/internal/headers"
 )
 
 type MethodType string
@@ -20,6 +23,7 @@ const (
 )
 
 var registeredNurse = []byte("\r\n")
+var emptyByteSlice = []byte("")
 
 type RequestLine struct {
 	Method      string
@@ -54,14 +58,27 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	lineCount := 0
 	var requestLine *RequestLine
 	var err error
+	headers := headers.NewHeaders()
+	var headersFinished bool
 
 	for scanner.Scan() {
 		token := scanner.Bytes()
 		lineCount++
+		if bytes.Equal(token, emptyByteSlice){
+			// encountered a double CRLF, headers over
+			headersFinished = true
+		}
 		if lineCount == 1 {
 			requestLine, err = parseRequestLine(token)
 			if err != nil {
 				return nil, err
+			}
+		} else {
+			if !headersFinished {
+				headers.ParseLine(token)
+			} else {
+				// parse body
+				// panic("body parsing not implemented")
 			}
 		}
 	}
