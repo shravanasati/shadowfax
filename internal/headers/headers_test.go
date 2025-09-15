@@ -75,4 +75,12 @@ func TestHeaderParsing(t *testing.T) {
 	require.NoError(t, err)
 	hval = headers.Get("Accept")
 	assert.Equal(t, "text/html, application/json", hval)
+
+	// Test: Multiline header value (folded header)
+	headers = NewHeaders()
+	// Simulate a header value split across two lines (second line starts with a space)
+	err = headers.ParseLine([]byte("X-Long-Header: part1"))
+	require.NoError(t, err)
+	err = headers.ParseLine([]byte(" part2"))
+	require.Error(t, err)
 }
