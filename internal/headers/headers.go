@@ -34,7 +34,7 @@ func (h *Headers) All() iter.Seq2[string, string] {
 	return maps.All(h.headers)
 }
 
-func (h *Headers) ParseLine(data []byte) (err error) {
+func (h *Headers) ParseFieldLine(data []byte) (err error) {
 	colonPos := bytes.IndexByte(data, ':')
 	if colonPos == -1 {
 		// colon not found

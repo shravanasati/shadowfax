@@ -30,7 +30,7 @@ func main() {
 			for key, val := range req.Headers.All() {
 				fmt.Printf("\t- %s: %s \n", key, val)
 			}
-			fmt.Printf("Body: \n%s\n", string(req.Body))
+			// fmt.Printf("Body: \n%s\n", string(req.Body))
 		}
 		fmt.Println("a connection has been closed")
 	}

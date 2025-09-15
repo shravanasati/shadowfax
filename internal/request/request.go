@@ -34,7 +34,6 @@ type RequestLine struct {
 type Request struct {
 	RequestLine RequestLine
 	Headers     headers.Headers
-	Body        []byte
 }
 
 var requestLineRegex = regexp.MustCompile(`^(GET|POST|PUT|PATCH|OPTIONS|TRACE|DELETE|HEAD) ([^\s]*) HTTP\/1.1$`)
@@ -53,23 +52,27 @@ func parseRequestLine(reqLine []byte) (*RequestLine, error) {
 }
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
-	scanner := getCRLFScanner(reader)
 
 	lineCount := 0
 	var requestLine *RequestLine
-	var err error
 	headers := headers.NewHeaders()
 	var headersFinished bool
-	var bodyBytesConsumed int
-	var body bytes.Buffer
 
-	for scanner.Scan() {
-		token := scanner.Bytes()
+	scanner := newCRLFReader(reader)
+
+	for !scanner.Done() {
+		token, err := scanner.Read()
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
 		lineCount++
-		if bytes.Equal(token, emptyByteSlice) {
+		// EOF also gives empty byte slice
+		// so to differentiate between empty line and EOF
+		// we must also take into account the err
+		if bytes.Equal(token, emptyByteSlice) && err != io.EOF {
 			// encountered a double CRLF, headers over
 			headersFinished = true
-			continue
+			break
 		}
 		if lineCount == 1 {
 			requestLine, err = parseRequestLine(token)
@@ -77,31 +80,11 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 				return nil, err
 			}
 		} else {
-			if !headersFinished {
-				err := headers.ParseLine(token)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				// check for content-length header first
-				contentLength := headers.Get("content-length")
-				if contentLength == "" {
-					break // no body if no content-length header
-				}
-
-				contentLengthInt, err := strconv.Atoi(contentLength)
-				if err != nil {
-					return nil, ErrInvalidHeaderValue
-				}
-				if body.Cap() < contentLengthInt {
-					body.Grow(contentLengthInt - body.Cap())
-				}
-
-				bodyBytesConsumed += len(token)
-				if bodyBytesConsumed > contentLengthInt {
-					return nil, ErrBodyTooLong
-				}
-				body.Write(token)
+			// we only parse the headers initially
+			// body will be parsed as requested by [Request.Body]
+			err := headers.ParseFieldLine(token)
+			if err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -110,17 +93,47 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		return nil, ErrIncompleteRequest
 	}
 
-	// check for body length
-	contentLength := headers.Get("content-length")
-	if contentLength != "" {
-		contentLengthInt, err := strconv.Atoi(contentLength)
-		if err != nil {
-			return nil, ErrInvalidHeaderValue
-		}
-		if bodyBytesConsumed < contentLengthInt {
-			return nil, ErrIncompleteRequest
-		}
+	return &Request{RequestLine: *requestLine, Headers: *headers}, nil
+}
+
+func (r *Request) contentLength() (int) {
+	contentLength := r.Headers.Get("content-length")
+	if contentLength == "" {
+		return 0
 	}
 
-	return &Request{RequestLine: *requestLine, Headers: *headers, Body: body.Bytes()}, nil
+	contentLengthInt, err := strconv.Atoi(contentLength)
+	if err != nil {
+		return 0
+	}
+
+	return contentLengthInt
 }
+
+// func (r *Request) Body() (io.ReadCloser, error) {
+// 	// check for content-length header first
+// 	contentLength := r.contentLength()
+	
+// 	bodyBytes, err := r.reader.Read(body)
+// 	if err != nil && !errors.Is(err, io.EOF) {
+// 		return nil, err
+// 	}
+// 	if bodyBytes > contentLength {
+// 		return nil, ErrBodyTooLong
+// 	}
+
+
+
+// 	body.Write(token)
+// 	// check for body length
+// 	contentLength := headers.Get("content-length")
+// 	if contentLength != "" {
+// 		contentLengthInt, err := strconv.Atoi(contentLength)
+// 		if err != nil {
+// 			return nil, ErrInvalidHeaderValue
+// 		}
+// 		if bodyBytesConsumed < contentLengthInt {
+// 			return nil, ErrIncompleteRequest
+// 		}
+// 	}
+// }
