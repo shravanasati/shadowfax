@@ -15,7 +15,7 @@ type bodyReader struct {
 func (br *bodyReader) Read(p []byte) (int, error) {
 	n, err := br.reader.Read(p)
 	br.bytesConsumed += n
-	
+
 	if errors.Is(err, io.EOF) && br.bytesConsumed < br.contentLength {
 		return 0, ErrIncompleteRequest
 	}

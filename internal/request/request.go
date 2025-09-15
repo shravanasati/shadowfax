@@ -34,6 +34,7 @@ type RequestLine struct {
 type Request struct {
 	RequestLine RequestLine
 	Headers     headers.Headers
+	reader      io.Reader
 }
 
 var requestLineRegex = regexp.MustCompile(`^(GET|POST|PUT|PATCH|OPTIONS|TRACE|DELETE|HEAD) ([^\s]*) HTTP\/1.1$`)
@@ -93,10 +94,10 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		return nil, ErrIncompleteRequest
 	}
 
-	return &Request{RequestLine: *requestLine, Headers: *headers}, nil
+	return &Request{RequestLine: *requestLine, Headers: *headers, reader: reader}, nil
 }
 
-func (r *Request) contentLength() (int) {
+func (r *Request) contentLength() int64 {
 	contentLength := r.Headers.Get("content-length")
 	if contentLength == "" {
 		return 0
@@ -107,33 +108,11 @@ func (r *Request) contentLength() (int) {
 		return 0
 	}
 
-	return contentLengthInt
+	return int64(contentLengthInt)
 }
 
-// func (r *Request) Body() (io.ReadCloser, error) {
-// 	// check for content-length header first
-// 	contentLength := r.contentLength()
-	
-// 	bodyBytes, err := r.reader.Read(body)
-// 	if err != nil && !errors.Is(err, io.EOF) {
-// 		return nil, err
-// 	}
-// 	if bodyBytes > contentLength {
-// 		return nil, ErrBodyTooLong
-// 	}
-
-
-
-// 	body.Write(token)
-// 	// check for body length
-// 	contentLength := headers.Get("content-length")
-// 	if contentLength != "" {
-// 		contentLengthInt, err := strconv.Atoi(contentLength)
-// 		if err != nil {
-// 			return nil, ErrInvalidHeaderValue
-// 		}
-// 		if bodyBytesConsumed < contentLengthInt {
-// 			return nil, ErrIncompleteRequest
-// 		}
-// 	}
-// }
+func (r *Request) Body() (io.ReadCloser, error) {
+	// check for content-length header first
+	contentLength := r.contentLength()
+	return newBodyReader(r.reader, int64(contentLength)), nil
+}
