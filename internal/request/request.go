@@ -93,6 +93,10 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 				if err != nil {
 					return nil, ErrInvalidHeaderValue
 				}
+				if body.Cap() < contentLengthInt {
+					body.Grow(contentLengthInt - body.Cap())
+				}
+
 				bodyBytesConsumed += len(token)
 				if bodyBytesConsumed > contentLengthInt {
 					return nil, ErrBodyTooLong
