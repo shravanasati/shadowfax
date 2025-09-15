@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"sync/atomic"
 
@@ -28,7 +29,6 @@ func (s *Server) listen() error {
 
 	for {
 		conn, err := s.listener.Accept()
-		fmt.Println("new conn")
 		if err != nil && !s.closed.Load() {
 			panic("unable to accept connection: " + err.Error())
 		}
@@ -38,23 +38,31 @@ func (s *Server) listen() error {
 }
 
 func (s *Server) handle(conn net.Conn) {
-	fmt.Println("inside handle")
 	defer conn.Close()
 	resp := []byte(`HTTP/1.1 200 OK
 Content-Type: text/plain
-Content-Length: 13
+Content-Length: 12
 
 Hello World!`)
 
 	fmt.Println("waiting for request parsing")
 	req, err := request.RequestFromReader(conn)
 	fmt.Println(req, err)
+	if err != nil {
+		return
+	}
+
+	bodyReader := req.Body()
+	defer bodyReader.Close()
+
+	b, e := io.ReadAll(bodyReader)
+	fmt.Println("Body:", string(b), "Error:", e)
 	conn.Write(resp)
 }
 
 func newServer(port uint16) (*Server, error) {
 	return &Server{
-		port:     port,
+		port: port,
 	}, nil
 }
 

@@ -111,8 +111,9 @@ func (r *Request) contentLength() int64 {
 	return int64(contentLengthInt)
 }
 
-func (r *Request) Body() (io.ReadCloser, error) {
+// Returns an [io.ReadCloser] interface. Make sure to close the body after it has been used.
+func (r *Request) Body() io.ReadCloser {
 	// check for content-length header first
 	contentLength := r.contentLength()
-	return newBodyReader(r.reader, int64(contentLength)), nil
+	return newBodyReader(r.reader, int64(contentLength))
 }
