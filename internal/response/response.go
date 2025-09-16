@@ -29,9 +29,36 @@ func (r *Response) allHeaders() string {
 
 func NewResponse() *Response {
 	return &Response{
-		Headers: headers.NewHeaders(),
+		Headers:    headers.NewHeaders(),
 		StatusCode: 200,
 	}
+}
+
+func (r *Response) WithStatusCode(code StatusCode) *Response {
+	r.StatusCode = code
+	return r
+}
+
+func (r *Response) WithBody(body []byte) *Response {
+	r.Body = body
+	return r
+}
+
+func (r *Response) WithBodyString(body string) *Response {
+	r.Body = []byte(body)
+	return r
+}
+
+func (r *Response) WithHeader(key, value string) *Response {
+	r.Headers.Add(key, value)
+	return r
+}
+
+func (r *Response) WithHeaders(headers map[string]string) *Response {
+	for key, value := range headers {
+		r.Headers.Add(key, value)
+	}
+	return r
 }
 
 func (r *Response) Bytes() []byte {

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net"
@@ -14,6 +15,7 @@ type Server struct {
 	port     uint16
 	listener net.Listener
 	closed   atomic.Bool
+	handler Handler
 }
 
 func (s *Server) Close() error {
@@ -53,19 +55,26 @@ func (s *Server) handle(conn net.Conn) {
 	b, e := io.ReadAll(bodyReader)
 	fmt.Println("Body:", string(b), "Error:", e)
 
-	resp := response.NewResponse()
-	resp.Body = []byte("Hello World!")
+	buffer := new(bytes.Buffer)
+	handlerError := s.handler(buffer, req)
+	if handlerError != nil {
+		conn.Write(handlerError.response().Bytes())
+		return
+	} 
+
+	resp := response.NewResponse().WithBody(buffer.Bytes())
 	conn.Write(resp.Bytes())
 }
 
-func newServer(port uint16) (*Server, error) {
+func newServer(port uint16, handler Handler) (*Server, error) {
 	return &Server{
 		port: port,
+		handler: handler,
 	}, nil
 }
 
-func Serve(port uint16) (*Server, error) {
-	s, err := newServer(port)
+func Serve(port uint16, handler Handler) (*Server, error) {
+	s, err := newServer(port, handler)
 	if err != nil {
 		return nil, err
 	}
