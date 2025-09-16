@@ -5,6 +5,7 @@ import (
 	"iter"
 	"maps"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -56,6 +57,16 @@ func (h *Headers) ParseFieldLine(data []byte) (err error) {
 
 	h.Add(string(hkey), string(hvalue))
 	return nil
+}
+
+func (h *Headers) AddDefaultHeaders(contentLength int)  {
+	h.Add("content-length", strconv.Itoa(contentLength))
+	h.Add("connection", "close")
+	h.Add("content-type", "text/plain")
+}
+
+func (h *Headers) Size() int {
+	return len(h.headers)
 }
 
 func NewHeaders() *Headers {

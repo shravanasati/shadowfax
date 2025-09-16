@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/shravanasati/shadowfax/internal/request"
+	"github.com/shravanasati/shadowfax/internal/response"
 )
 
 type Server struct {
@@ -39,13 +40,7 @@ func (s *Server) listen() error {
 
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
-	resp := []byte(`HTTP/1.1 200 OK
-Content-Type: text/plain
-Content-Length: 12
 
-Hello World!`)
-
-	fmt.Println("waiting for request parsing")
 	req, err := request.RequestFromReader(conn)
 	fmt.Println(req, err)
 	if err != nil {
@@ -57,7 +52,10 @@ Hello World!`)
 
 	b, e := io.ReadAll(bodyReader)
 	fmt.Println("Body:", string(b), "Error:", e)
-	conn.Write(resp)
+
+	resp := response.NewResponse()
+	resp.Body = []byte("Hello World!")
+	conn.Write(resp.Bytes())
 }
 
 func newServer(port uint16) (*Server, error) {
