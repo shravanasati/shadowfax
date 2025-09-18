@@ -46,6 +46,8 @@ func (s *Server) handle(conn net.Conn) {
 	req, err := request.RequestFromReader(conn)
 	fmt.Println(req, err)
 	if err != nil {
+		he := NewHandlerError(response.StatusBadRequest, err.Error())
+		conn.Write(he.response().Bytes())
 		return
 	}
 
@@ -55,7 +57,7 @@ func (s *Server) handle(conn net.Conn) {
 	b, e := io.ReadAll(bodyReader)
 	fmt.Println("Body:", string(b), "Error:", e)
 
-	buffer := new(bytes.Buffer)
+	buffer := bytes.NewBuffer([]byte{})
 	handlerError := s.handler(buffer, req)
 	if handlerError != nil {
 		conn.Write(handlerError.response().Bytes())
