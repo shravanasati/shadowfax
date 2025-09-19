@@ -1,85 +1,118 @@
 package response
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"strings"
+
+	"github.com/shravanasati/shadowfax/internal/headers"
 )
 
-type StreamFunc func(io.Writer) error
+type TrailerSetter func(key, value string)
+type StreamFunc func(w io.Writer, setTrailer TrailerSetter) error
 
-func (sf StreamFunc) Reader() io.Reader {
-    pr, pw := io.Pipe()
+func (sr *StreamResponse) Reader() io.Reader {
+	pr, pw := io.Pipe()
 
-    go func() {
-        defer pw.Close()
-        if err := sf(pw); err != nil {
-            // propagate error to the reader
-            pw.CloseWithError(err)
-        }
-    }()
+	go func() {
+		defer pw.Close()
 
-    return pr
+		setTrailer := func(key, value string) {
+			sr.Trailers.Add(key, value)
+		}
+
+		if err := sr.Stream(pw, setTrailer); err != nil {
+			// propagate error to the reader
+			pw.CloseWithError(err)
+		}
+	}()
+
+	return pr
 }
 
 type chunkedReader struct {
-    r   io.Reader
-    buf []byte
-    eof bool
+	r        io.Reader
+	buf      bytes.Buffer
+	eof      bool
+	trailers *headers.Headers
 }
 
 func (cr *chunkedReader) Read(p []byte) (int, error) {
-    // Serve from buffer first
-    if len(cr.buf) > 0 {
-        n := copy(p, cr.buf)
-        cr.buf = cr.buf[n:]
-        return n, nil
-    }
+	// Serve from buffer first
+	if cr.buf.Len() > 0 {
+		n, _ := cr.buf.Read(p)
+		return n, nil
+	}
 
-    if cr.eof {
-        return 0, io.EOF
-    }
+	if cr.eof {
+		return 0, io.EOF
+	}
 
-    // Read from underlying
-    raw := make([]byte, 4096)
-    n, err := cr.r.Read(raw)
-    if n > 0 {
-        // Build chunk: size\r\n + data + \r\n
-        header := []byte(fmt.Sprintf("%x\r\n", n))
-        footer := []byte("\r\n")
+	// Read from underlying
+	raw := make([]byte, 4096)
+	n, err := cr.r.Read(raw)
+	if n > 0 {
+		// Build chunk: size\r\n + data + \r\n
+		header := fmt.Appendf(nil, "%x\r\n", n)
+		footer := []byte("\r\n")
 
-        cr.buf = append(cr.buf, header...)
-        cr.buf = append(cr.buf, raw[:n]...)
-        cr.buf = append(cr.buf, footer...)
+		cr.buf.Write(header)
+		cr.buf.Write(raw[:n])
+		cr.buf.Write(footer)
 
-        // Serve from buf
-        n := copy(p, cr.buf)
-        cr.buf = cr.buf[n:]
-        return n, nil
-    }
+		// Serve from buf
+		n, _ := cr.buf.Read(p)
+		return n, nil
+	}
 
-    if err == io.EOF {
-        cr.buf = []byte("0\r\n\r\n")
-        cr.eof = true
-        n := copy(p, cr.buf)
-        cr.buf = cr.buf[n:]
-        return n, nil
-    }
+	if err == io.EOF {
+		// Write final chunk with trailers
+		cr.buf.WriteString("0\r\n")
 
-    return 0, err
+		if cr.trailers.Size() > 0 {
+			fmt.Println(cr.trailers)
+			for key, value := range cr.trailers.All() {
+				trailerLine := fmt.Sprintf("%s: %s\r\n", key, value)
+				cr.buf.WriteString(trailerLine)
+			}
+		}
+
+		// Final CRLF to end the response
+		cr.buf.WriteString("\r\n")
+
+		cr.eof = true
+		n, _ := cr.buf.Read(p)
+		return n, nil
+	}
+
+	return 0, err
 }
-
 
 type StreamResponse struct {
 	*BaseResponse
-	Stream StreamFunc
+	Stream      StreamFunc
+	trailerList []string
+	Trailers    *headers.Headers
 }
 
-func NewStreamResponse(sf StreamFunc) *StreamResponse {
-	br := NewBaseResponse().
-		WithHeader("transfer-encoding", "chunked").
-		WithBody(&chunkedReader{r: sf.Reader()})
-
-	return &StreamResponse{
-		BaseResponse: br,
+func NewStreamResponse(sf StreamFunc, trailers []string) *StreamResponse {
+	sr := &StreamResponse{
+		BaseResponse: NewBaseResponse().
+			WithHeader("transfer-encoding", "chunked"),
+		Stream:      sf,
+		trailerList: trailers,
+		Trailers:    headers.NewHeaders(),
 	}
+
+	if len(trailers) > 0 {
+		sr.BaseResponse.WithHeader("Trailer", strings.Join(trailers, ", "))
+	}
+
+	sr.BaseResponse.WithBody(&chunkedReader{
+		r:        sr.Reader(),
+		trailers: sr.Trailers,
+	})
+
+	return sr
 }

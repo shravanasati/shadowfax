@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -43,15 +47,20 @@ func main() {
 			fmt.Printf("httpbin response status: %s\n", resp.Status)
 			fmt.Printf("httpbin response headers: %v\n", resp.Header)
 
-			sr := response.NewStreamResponse(func(w io.Writer) error {
+			sr := response.NewStreamResponse(func(w io.Writer, setTrailer response.TrailerSetter) error {
 				defer resp.Body.Close()
 
 				buf := make([]byte, 1024)
 				totalBytes := 0
+				var allData bytes.Buffer
 				for {
 					n, err := resp.Body.Read(buf)
 					if err == io.EOF {
 						fmt.Printf("Finished reading httpbin response, total bytes: %d\n", totalBytes)
+						// Set trailers before finishing
+						hash := sha256.Sum256(allData.Bytes())
+						setTrailer("X-Content-SHA256", hex.EncodeToString(hash[:]))
+						setTrailer("X-Content-Length", strconv.Itoa(totalBytes))
 						break
 					}
 					if err != nil {
@@ -59,17 +68,19 @@ func main() {
 						return err
 					}
 					totalBytes += n
+					allData.Write(buf[:n])
 					fmt.Printf("Read %d bytes from httpbin, writing to client\n", n)
 					w.Write(buf[:n])
 				}
 
 				return nil
-			})
+			}, []string{"X-Content-Length", "X-Content-SHA256"})
+
 			return sr
 		}
 
 		if r.RequestLine.Target == "/stream" {
-			sr := response.NewStreamResponse(func(w io.Writer) error {
+			sr := response.NewStreamResponse(func(w io.Writer, setTrailer response.TrailerSetter) error {
 				ticker := time.NewTicker(time.Millisecond * 100)
 				defer ticker.Stop()
 				deadline := time.After(2 * time.Second)
@@ -82,7 +93,7 @@ func main() {
 						fmt.Fprintf(w, "%v\n", t)
 					}
 				}
-			})
+			}, nil)
 
 			return sr
 		}
@@ -90,7 +101,7 @@ func main() {
 		if r.RequestLine.Target == "/json" {
 			jr, err := response.NewJSONResponse(map[string]any{
 				"hello": 1,
-				"hi": "bye",
+				"hi":    "bye",
 			})
 
 			if err != nil {
