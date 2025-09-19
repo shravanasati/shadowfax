@@ -87,6 +87,27 @@ func main() {
 			return sr
 		}
 
+		if r.RequestLine.Target == "/json" {
+			jr, err := response.NewJSONResponse(map[string]any{
+				"hello": 1,
+				"hi": "bye",
+			})
+
+			if err != nil {
+				return response.NewBaseResponse().WithStatusCode(response.StatusInternalServerError)
+			}
+
+			return jr
+		}
+
+		if r.RequestLine.Target == "/file" {
+			f, err := os.Open("./LICENSE.txt")
+			if err != nil {
+				return response.NewBaseResponse().WithStatusCode(response.StatusInternalServerError)
+			}
+			return response.NewFileResponse(f)
+		}
+
 		return response.
 			NewTextResponse("all good, frfr\n").
 			WithStatusCode(response.StatusOK)
