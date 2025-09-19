@@ -112,11 +112,11 @@ func main() {
 		}
 
 		if r.RequestLine.Target == "/file" {
-			f, err := os.Open("./LICENSE.txt")
+			f, err := os.Open(`./assets/vim.mp4`)
 			if err != nil {
 				return response.NewBaseResponse().WithStatusCode(response.StatusInternalServerError)
 			}
-			return response.NewFileResponse(f)
+			return response.NewFileResponse(f).WithHeader("content-type", "video/mp4")
 		}
 
 		return response.
