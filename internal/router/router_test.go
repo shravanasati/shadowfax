@@ -74,7 +74,7 @@ func TestRouter(t *testing.T) {
 		{"POST", "/any", http.StatusOK, "any method"},
 		{"DELETE", "/any", http.StatusOK, "any method"},
 		{"GET", "/notfound", http.StatusNotFound, "Not Found"},
-		{"OPTIONS", "/home", http.StatusNotFound, "Not Found"},
+		{"OPTIONS", "/home", http.StatusMethodNotAllowed, "Method Not Allowed"},
 	}
 
 	for _, tc := range testCases {
@@ -102,4 +102,39 @@ func TestRouter(t *testing.T) {
 			assert.Equal(t, tc.expectedBody, body)
 		})
 	}
+}
+
+func TestRouter_CustomNotFoundHandler(t *testing.T) {
+	router := NewRouter()
+
+	// Set a custom not-found handler
+	router.NotFound(func(r *request.Request) response.Response {
+		return response.NewTextResponse("custom not found").WithStatusCode(http.StatusTeapot)
+	})
+
+	handler := router.Handler()
+
+	// Make a request to a non-existent route
+	httpReq := httptest.NewRequest("GET", "/non-existent-route", nil)
+	var buf bytes.Buffer
+	err := httpReq.Write(&buf)
+	require.NoError(t, err)
+
+	req, err := request.RequestFromReader(&buf)
+	require.NoError(t, err)
+
+	// Execute the handler
+	resp := handler(req)
+
+	// Record the response
+	w := httptest.NewRecorder()
+	err = resp.Write(w)
+	require.NoError(t, err)
+
+	// Parse and verify the response
+	res, body, err := parseResponse(w)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusTeapot, res.StatusCode)
+	assert.Equal(t, "custom not found", body)
 }

@@ -6,8 +6,15 @@ import (
 	"github.com/shravanasati/shadowfax/internal/server"
 )
 
+var defaultNotFoundHandler server.Handler = func(r *request.Request) response.Response {
+	return response.
+		NewTextResponse(response.GetStatusReason(response.StatusNotFound)).
+		WithStatusCode(response.StatusNotFound)
+}
+
 type Router struct {
-	trees map[string]*TrieNode
+	trees           map[string]*TrieNode
+	notFoundHandler server.Handler
 }
 
 func NewRouter() *Router {
@@ -20,7 +27,7 @@ func NewRouter() *Router {
 		"OPTIONS": NewTrieNode(),
 		"ANY":     NewTrieNode(),
 	}
-	return &Router{trees: methodTreeMap}
+	return &Router{trees: methodTreeMap, notFoundHandler: defaultNotFoundHandler}
 }
 
 func (r *Router) Get(path string, handler server.Handler) {
@@ -46,6 +53,10 @@ func (r *Router) Delete(path string, handler server.Handler) {
 
 func (r *Router) Handle(path string, handler server.Handler) {
 	r.trees["ANY"].AddRoute(path, handler)
+}
+
+func (r *Router) NotFound(handler server.Handler) {
+	r.notFoundHandler = handler
 }
 
 func (router *Router) Handler() server.Handler {
@@ -82,8 +93,6 @@ func (router *Router) Handler() server.Handler {
 		}
 
 		// 404 not found
-		return response.
-			NewTextResponse(response.GetStatusReason(response.StatusNotFound)).
-			WithStatusCode(response.StatusNotFound)
+		return router.notFoundHandler(r)
 	}
 }
