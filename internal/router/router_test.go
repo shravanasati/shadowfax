@@ -65,6 +65,7 @@ func TestRouter(t *testing.T) {
 		expectedBody   string
 	}{
 		{"GET", "/home", http.StatusOK, "get home"},
+		{"GET", "/home?q=val", http.StatusOK, "get home"},
 		{"POST", "/home", http.StatusOK, "post home"},
 		{"PUT", "/home", http.StatusOK, "put home"},
 		{"PATCH", "/home", http.StatusOK, "patch home"},
