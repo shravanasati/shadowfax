@@ -15,13 +15,13 @@ import (
 )
 
 func parseResponse(w *httptest.ResponseRecorder) (*http.Response, string, error) {
-    res, err := http.ReadResponse(bufio.NewReader(w.Body), nil)
-    if err != nil {
-        return nil, "", err
-    }
-    defer res.Body.Close()
-    b, _ := io.ReadAll(res.Body)
-    return res, string(b), nil
+	res, err := http.ReadResponse(bufio.NewReader(w.Body), nil)
+	if err != nil {
+		return nil, "", err
+	}
+	defer res.Body.Close()
+	b, _ := io.ReadAll(res.Body)
+	return res, string(b), nil
 }
 
 func TestRouter(t *testing.T) {
@@ -48,7 +48,7 @@ func TestRouter(t *testing.T) {
 	})
 
 	router.Get("/users/:id", func(r *request.Request) response.Response {
-		id := r.Params["id"]
+		id := r.PathParams["id"]
 		return response.NewTextResponse("user " + id)
 	})
 

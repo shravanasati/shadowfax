@@ -56,14 +56,14 @@ func (router *Router) Handler() server.Handler {
 		// try exact method first
 		handler, params := router.trees[method].Match(path)
 		if handler != nil {
-			r.Params = params
+			r.PathParams = params
 			return handler(r)
 		}
 
 		// general method handler
 		handler, params = router.trees["ANY"].Match(path)
 		if handler != nil {
-			r.Params = params
+			r.PathParams = params
 			return handler(r)
 		}
 

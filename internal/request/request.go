@@ -32,9 +32,9 @@ type RequestLine struct {
 
 type Request struct {
 	RequestLine
-	Headers headers.Headers
-	Params  map[string]string
-	reader  io.Reader
+	Headers    headers.Headers
+	PathParams map[string]string
+	reader     io.Reader
 }
 
 var requestLineRegex = regexp.MustCompile(`^(GET|POST|PUT|PATCH|OPTIONS|TRACE|DELETE|HEAD) ([^\s]*) HTTP\/1.1$`)
