@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"io"
 	"net"
 	"sync/atomic"
 
@@ -53,15 +52,17 @@ func (s *Server) handle(conn net.Conn) {
 		return
 	}
 
-	bodyReader := req.Body()
-	defer bodyReader.Close()
+	// bodyReader := req.Body()
+	// defer bodyReader.Close()
 
-	b, e := io.ReadAll(bodyReader)
-	fmt.Println("Body:", string(b), "Error:", e)
+	// b, e := io.ReadAll(bodyReader)
+	// fmt.Println("Body:", string(b), "Error:", e)
 
 	resp := s.handler(req)
 	err = resp.Write(conn)
-	fmt.Println("resp writing error", err)
+	if err != nil {
+		fmt.Println("resp writing error", err)
+	}
 }
 
 func newServer(port uint16, handler Handler) (*Server, error) {

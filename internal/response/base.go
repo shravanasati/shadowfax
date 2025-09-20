@@ -44,7 +44,6 @@ func (r *BaseResponse) WithBody(body io.Reader) *BaseResponse {
 	return r
 }
 
-
 func (r *BaseResponse) Write(w io.Writer) error {
 	rw := NewResponseWriter(w)
 	err := rw.WriteStatusLine(r.StatusCode)

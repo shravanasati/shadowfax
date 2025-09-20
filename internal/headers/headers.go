@@ -60,7 +60,7 @@ func (h *Headers) ParseFieldLine(data []byte) (err error) {
 	return nil
 }
 
-func (h *Headers) AddDefaultHeaders(contentLength int)  {
+func (h *Headers) AddDefaultHeaders(contentLength int) {
 	h.Add("content-length", strconv.Itoa(contentLength))
 	h.Add("connection", "close")
 	h.Add("content-type", "text/plain")

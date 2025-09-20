@@ -1,9 +1,9 @@
 package response
 
 import (
+	"bytes"
 	"encoding/json"
 	"strconv"
-	"bytes"
 )
 
 type JSONResponse struct {

@@ -73,7 +73,7 @@ func (n *TrieNode) AddRoute(path string, handler server.Handler) {
 }
 
 // Match finds a handler for a given path and extracts any parameters
-func (n *TrieNode) Match(path string) (server.Handler, map[string]string,) {
+func (n *TrieNode) Match(path string) (server.Handler, map[string]string) {
 	segments := strings.Split(strings.Trim(path, "/"), "/")
 	currentNode := n
 	params := make(map[string]string)

@@ -120,7 +120,7 @@ func main() {
 		return response.NewFileResponse(f).WithHeader("content-type", "video/mp4")
 	})
 
-	router.Handle("/*path", func(r *request.Request) response.Response {
+	router.Handle("/api/*path", func(r *request.Request) response.Response {
 		return response.NewTextResponse("all good, frfr\n").WithStatusCode(response.StatusOK)
 	})
 

@@ -50,11 +50,11 @@ func (r *Router) Handle(path string, handler server.Handler) {
 
 func (router *Router) Handler() server.Handler {
 	return func(r *request.Request) response.Response {
-		method := r.Method
+		reqMethod := r.Method
 		path := r.Target
 
 		// try exact method first
-		handler, params := router.trees[method].Match(path)
+		handler, params := router.trees[reqMethod].Match(path)
 		if handler != nil {
 			r.PathParams = params
 			return handler(r)
@@ -65,6 +65,20 @@ func (router *Router) Handler() server.Handler {
 		if handler != nil {
 			r.PathParams = params
 			return handler(r)
+		}
+
+		// check for method not allowed
+		for method, tree := range router.trees {
+			if method == reqMethod || method == "ANY" {
+				// skip running trie search against already tried methods
+				continue
+			}
+			handler, _ := tree.Match(path)
+			if handler != nil {
+				return response.
+					NewTextResponse(response.GetStatusReason(response.StatusMethodNotAllowed)).
+					WithStatusCode(response.StatusMethodNotAllowed)
+			}
 		}
 
 		// 404 not found
