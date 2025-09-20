@@ -36,8 +36,14 @@ func main() {
 			WithStatusCode(response.StatusInternalServerError)
 	})
 
-	router.Post("/httpbin", func(r *request.Request) response.Response {
-		resp, err := http.Get("https://httpbin.org/stream/100")
+	router.Post("/httpbin/:x", func(r *request.Request) response.Response {
+		xs := r.PathParams["x"]
+		_, err := strconv.Atoi(xs)
+		if err != nil {
+			return response.NewBaseResponse().WithStatusCode(response.StatusBadRequest)
+		}
+
+		resp, err := http.Get("https://httpbin.org/stream/" + xs)
 		if err != nil {
 			fmt.Printf("Error fetching httpbin: %v\n", err)
 			return response.
@@ -80,11 +86,17 @@ func main() {
 		return sr
 	})
 
-	router.Get("/stream", func(r *request.Request) response.Response {
+	router.Get("/stream/:s", func(r *request.Request) response.Response {
+		xs := r.PathParams["s"]
+		s, err := strconv.Atoi(xs)
+		if err != nil {
+			return response.NewBaseResponse().WithStatusCode(response.StatusBadRequest)
+		}
+
 		sr := response.NewStreamResponse(func(w io.Writer, setTrailer response.TrailerSetter) error {
 			ticker := time.NewTicker(time.Millisecond * 100)
 			defer ticker.Stop()
-			deadline := time.After(2 * time.Second)
+			deadline := time.After(time.Duration(s) * time.Second)
 
 			for {
 				select {
@@ -124,7 +136,7 @@ func main() {
 		user := r.PathParams["user"]
 		force := r.Query["force"]
 		return response.
-				NewTextResponse(fmt.Sprintf("user %s deleted with force=%s", user, force))
+			NewTextResponse(fmt.Sprintf("user %s deleted with force=%s", user, force))
 	})
 
 	router.Handle("/api/*path", func(r *request.Request) response.Response {
