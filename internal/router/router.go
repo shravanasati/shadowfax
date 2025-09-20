@@ -12,12 +12,13 @@ type Router struct {
 
 func NewRouter() *Router {
 	methodTreeMap := map[string]*TrieNode{
-		"GET":    NewTrieNode(),
-		"POST":   NewTrieNode(),
-		"PUT":    NewTrieNode(),
-		"PATCH":  NewTrieNode(),
-		"DELETE": NewTrieNode(),
-		"ANY":    NewTrieNode(),
+		"GET":     NewTrieNode(),
+		"POST":    NewTrieNode(),
+		"PUT":     NewTrieNode(),
+		"PATCH":   NewTrieNode(),
+		"DELETE":  NewTrieNode(),
+		"OPTIONS": NewTrieNode(),
+		"ANY":     NewTrieNode(),
 	}
 	return &Router{trees: methodTreeMap}
 }

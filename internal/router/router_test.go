@@ -1,6 +1,7 @@
 package router
 
 import (
+	"bufio"
 	"bytes"
 	"io"
 	"net/http"
@@ -10,12 +11,17 @@ import (
 	"github.com/shravanasati/shadowfax/internal/request"
 	"github.com/shravanasati/shadowfax/internal/response"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func parseResponse(w *httptest.ResponseRecorder) (int, string) {
-	resp := w.Result()
-	body, _ := io.ReadAll(resp.Body)
-	return resp.StatusCode, string(body)
+func parseResponse(w *httptest.ResponseRecorder) (*http.Response, string, error) {
+    res, err := http.ReadResponse(bufio.NewReader(w.Body), nil)
+    if err != nil {
+        return nil, "", err
+    }
+    defer res.Body.Close()
+    b, _ := io.ReadAll(res.Body)
+    return res, string(b), nil
 }
 
 func TestRouter(t *testing.T) {
@@ -73,35 +79,26 @@ func TestRouter(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
-			// Create a mock request
 			httpReq := httptest.NewRequest(tc.method, tc.path, nil)
 
-			// Create a buffer and write the request to it
 			var buf bytes.Buffer
 			err := httpReq.Write(&buf)
 			assert.NoError(t, err)
 
-			// Create a request object from the buffer
 			req, err := request.RequestFromReader(&buf)
 			assert.NoError(t, err)
 
-			// Call the handler
 			resp := handler(req)
 
-			// Create a response recorder
 			w := httptest.NewRecorder()
 
-			// Write the response to the recorder
 			err = resp.Write(w)
 			assert.NoError(t, err)
 
-			// Parse the response
-			statusCode, body := parseResponse(w)
+			res, body, err := parseResponse(w)
+			require.NoError(t, err)
 
-			// Check the status code
-			assert.Equal(t, tc.expectedStatus, statusCode)
-
-			// Check the body
+			assert.Equal(t, tc.expectedStatus, res.StatusCode)
 			assert.Equal(t, tc.expectedBody, body)
 		})
 	}
