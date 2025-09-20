@@ -12,9 +12,12 @@ var defaultNotFoundHandler server.Handler = func(r *request.Request) response.Re
 		WithStatusCode(response.StatusNotFound)
 }
 
+type Middleware func(server.Handler) server.Handler
+
 type Router struct {
 	trees           map[string]*TrieNode
 	notFoundHandler server.Handler
+	middlewares     []Middleware
 }
 
 func NewRouter() *Router {
@@ -27,7 +30,7 @@ func NewRouter() *Router {
 		"OPTIONS": NewTrieNode(),
 		"ANY":     NewTrieNode(),
 	}
-	return &Router{trees: methodTreeMap, notFoundHandler: defaultNotFoundHandler}
+	return &Router{trees: methodTreeMap, notFoundHandler: defaultNotFoundHandler, middlewares: []Middleware{}}
 }
 
 func (r *Router) Get(path string, handler server.Handler) {
@@ -59,8 +62,19 @@ func (r *Router) NotFound(handler server.Handler) {
 	r.notFoundHandler = handler
 }
 
+func (r *Router) Use(m ...Middleware) {
+	r.middlewares = append(r.middlewares, m...)
+}
+
+func (r *Router) chain(h server.Handler) server.Handler {
+	for i := len(r.middlewares) - 1; i >= 0; i-- {
+		h = r.middlewares[i](h)
+	}
+	return h
+}
+
 func (router *Router) Handler() server.Handler {
-	return func(r *request.Request) response.Response {
+	routingHandler := func(r *request.Request) response.Response {
 		reqMethod := r.Method
 		path := r.Target
 
@@ -95,4 +109,6 @@ func (router *Router) Handler() server.Handler {
 		// 404 not found
 		return router.notFoundHandler(r)
 	}
+
+	return router.chain(routingHandler)
 }

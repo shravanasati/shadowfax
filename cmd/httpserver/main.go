@@ -22,21 +22,62 @@ import (
 
 const port = 42069
 
+func loggingMiddleware(next server.Handler) server.Handler {
+	return server.Handler(func(r *request.Request) response.Response {
+		now := time.Now()
+		resp := next(r)
+		fmt.Printf("%s %s in %s\n", r.Method, r.Target, time.Since(now))
+		return resp
+	})
+}
+
+// func headerAdder(next server.Handler) server.Handler {
+// 	return func(r *request.Request) response.Response {
+// 		resp := next(r)
+// 		fmt.Printf("%T\n", resp)
+// 		br, ok := resp.(*response.BaseResponse)
+// 		if !ok {
+// 			panic("cannot cast response into base response")
+// 		}
+// 		br.WithHeader("X-Server", "shadowfax")
+// 		return br
+// 	}
+// }
+
+func userOnly(next server.Handler) server.Handler {
+	return func(r *request.Request) response.Response {
+		if r.Headers.Get("username") != "user" {
+			return response.NewBaseResponse().WithStatusCode(response.StatusUnauthorized)
+		}
+		return next(r)
+	}
+}
+
 func main() {
-	router := router.NewRouter()
-	router.Get("/yourproblem", func(r *request.Request) response.Response {
+	app := router.NewRouter()
+	app.Use(loggingMiddleware)
+
+	fuckRouter := router.NewRouter()
+	fuckRouter.Use(userOnly)
+	fuckRouter.Get("/*", func(r *request.Request) response.Response {
+		return response.NewTextResponse("fuck")
+	})
+
+	app.Handle("/fuck", fuckRouter.Handler())
+
+	app.Get("/yourproblem", func(r *request.Request) response.Response {
 		return response.
 			NewTextResponse("your problem is not my problem\n").
 			WithStatusCode(response.StatusBadRequest)
 	})
 
-	router.Handle("/myproblem", func(r *request.Request) response.Response {
+	app.Handle("/myproblem", func(r *request.Request) response.Response {
 		return response.
 			NewTextResponse("woopsie, my bad\n").
 			WithStatusCode(response.StatusInternalServerError)
 	})
 
-	router.Post("/httpbin/:x", func(r *request.Request) response.Response {
+	app.Post("/httpbin/:x", func(r *request.Request) response.Response {
 		xs := r.PathParams["x"]
 		_, err := strconv.Atoi(xs)
 		if err != nil {
@@ -86,7 +127,7 @@ func main() {
 		return sr
 	})
 
-	router.Get("/stream/:s", func(r *request.Request) response.Response {
+	app.Get("/stream/:s", func(r *request.Request) response.Response {
 		xs := r.PathParams["s"]
 		s, err := strconv.Atoi(xs)
 		if err != nil {
@@ -111,7 +152,7 @@ func main() {
 		return sr
 	})
 
-	router.Get("/json", func(r *request.Request) response.Response {
+	app.Get("/json", func(r *request.Request) response.Response {
 		jr, err := response.NewJSONResponse(map[string]any{
 			"hello": 1,
 			"hi":    "bye",
@@ -124,7 +165,7 @@ func main() {
 		return jr
 	})
 
-	router.Get("/file", func(r *request.Request) response.Response {
+	app.Get("/file", func(r *request.Request) response.Response {
 		f, err := os.Open(`./assets/vim.mp4`)
 		if err != nil {
 			return response.NewBaseResponse().WithStatusCode(response.StatusInternalServerError)
@@ -132,18 +173,18 @@ func main() {
 		return response.NewFileResponse(f).WithHeader("content-type", "video/mp4")
 	})
 
-	router.Delete("/api/:user", func(r *request.Request) response.Response {
+	app.Delete("/api/:user", func(r *request.Request) response.Response {
 		user := r.PathParams["user"]
 		force := r.Query["force"]
 		return response.
 			NewTextResponse(fmt.Sprintf("user %s deleted with force=%s", user, force))
 	})
 
-	router.Handle("/api/*path", func(r *request.Request) response.Response {
+	app.Handle("/api/*path", func(r *request.Request) response.Response {
 		return response.NewTextResponse("all good, frfr\n").WithStatusCode(response.StatusOK)
 	})
 
-	server, err := server.Serve(port, router.Handler())
+	server, err := server.Serve(port, app.Handler())
 
 	if err != nil {
 		log.Fatalf("Error starting server: %v", err)

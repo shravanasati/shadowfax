@@ -56,9 +56,11 @@ func (r *BaseResponse) Write(w io.Writer) error {
 		return err
 	}
 
-	err = rw.WriteBody(r.Body)
-	if err != nil {
-		return err
+	if r.Body != nil {
+		err = rw.WriteBody(r.Body)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

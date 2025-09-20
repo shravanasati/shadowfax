@@ -58,7 +58,7 @@ func parseRequestLine(reqLine []byte) (*RequestLine, error) {
 func RequestFromReader(reader io.Reader) (*Request, error) {
 
 	lineCount := 0
-	var requestLine *RequestLine
+	requestLine := &RequestLine{}
 	headers := headers.NewHeaders()
 	var headersFinished bool
 

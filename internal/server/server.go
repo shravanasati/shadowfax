@@ -46,7 +46,7 @@ func (s *Server) handle(conn net.Conn) {
 	}()
 
 	req, err := request.RequestFromReader(conn)
-	fmt.Println(req, err)
+	// fmt.Println(req, err)
 	if err != nil {
 		response.NewBaseResponse().WithStatusCode(400).Write(conn)
 		return

@@ -24,6 +24,10 @@ func (cr *crlfReader) Read() ([]byte, error) {
 		return nil, io.EOF
 	}
 
+	if cr.reader == nil {
+		return nil, io.EOF
+	}
+
 	var line []byte
 	var foundCR bool
 
