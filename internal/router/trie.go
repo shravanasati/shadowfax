@@ -20,7 +20,6 @@ type TrieNode struct {
 	wildcardChild *TrieNode
 	wildcardName  string
 
-	method string
 	// route handler to call
 	handler server.Handler
 }
