@@ -2,7 +2,9 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"net"
+	"runtime/debug"
 	"sync/atomic"
 
 	"github.com/shravanasati/shadowfax/internal/request"
@@ -40,6 +42,16 @@ func (s *Server) listen() error {
 
 func (s *Server) handle(conn net.Conn) {
 	defer func() {
+		if r := recover(); r != nil {
+			log.Println("recovered from panic:", r)
+			debug.PrintStack()
+			resp := response.NewTextResponse(response.GetStatusReason(response.StatusInternalServerError)).WithStatusCode(response.StatusInternalServerError)
+			resp.Write(conn)
+			conn.Close()
+			return
+		}
+
+		// todo remove when keep alive is used
 		if conn != nil {
 			conn.Close()
 		}

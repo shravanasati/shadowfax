@@ -64,6 +64,9 @@ func main() {
 	})
 
 	app.Handle("/fuck", fuckRouter.Handler())
+	app.Handle("/panic", func(r *request.Request) response.Response {
+		panic("boom")
+	})
 
 	app.Get("/yourproblem", func(r *request.Request) response.Response {
 		return response.
