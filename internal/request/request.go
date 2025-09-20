@@ -22,7 +22,6 @@ const (
 	OPTIONS MethodType = "OPTIONS"
 )
 
-var registeredNurse = []byte("\r\n")
 var emptyByteSlice = []byte("")
 
 type RequestLine struct {
@@ -32,9 +31,10 @@ type RequestLine struct {
 }
 
 type Request struct {
-	RequestLine RequestLine
-	Headers     headers.Headers
-	reader      io.Reader
+	RequestLine
+	Headers headers.Headers
+	Params  map[string]string
+	reader  io.Reader
 }
 
 var requestLineRegex = regexp.MustCompile(`^(GET|POST|PUT|PATCH|OPTIONS|TRACE|DELETE|HEAD) ([^\s]*) HTTP\/1.1$`)
