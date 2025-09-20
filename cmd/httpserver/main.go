@@ -120,6 +120,13 @@ func main() {
 		return response.NewFileResponse(f).WithHeader("content-type", "video/mp4")
 	})
 
+	router.Delete("/api/:user", func(r *request.Request) response.Response {
+		user := r.PathParams["user"]
+		force := r.Query["force"]
+		return response.
+				NewTextResponse(fmt.Sprintf("user %s deleted with force=%s", user, force))
+	})
+
 	router.Handle("/api/*path", func(r *request.Request) response.Response {
 		return response.NewTextResponse("all good, frfr\n").WithStatusCode(response.StatusOK)
 	})

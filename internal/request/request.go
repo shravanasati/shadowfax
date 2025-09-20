@@ -3,8 +3,10 @@ package request
 import (
 	"bytes"
 	"io"
+	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/shravanasati/shadowfax/internal/headers"
 )
@@ -34,6 +36,7 @@ type Request struct {
 	RequestLine
 	Headers    headers.Headers
 	PathParams map[string]string
+	Query      url.Values
 	reader     io.Reader
 }
 
@@ -94,7 +97,18 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		return nil, ErrIncompleteRequest
 	}
 
-	return &Request{RequestLine: *requestLine, Headers: *headers, reader: reader}, nil
+	var query string
+	questionMarkPos := strings.IndexRune(requestLine.Target, '?')
+	if questionMarkPos != -1 {
+		query = requestLine.Target[questionMarkPos+1:]
+	}
+
+	q, err := url.ParseQuery(query)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Request{RequestLine: *requestLine, Headers: *headers, reader: reader, Query: q}, nil
 }
 
 func (r *Request) contentLength() int64 {
