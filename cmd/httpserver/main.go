@@ -26,23 +26,18 @@ func loggingMiddleware(next server.Handler) server.Handler {
 	return server.Handler(func(r *request.Request) response.Response {
 		now := time.Now()
 		resp := next(r)
-		fmt.Printf("%s %s in %s\n", r.Method, r.Target, time.Since(now))
+		fmt.Printf("%s %s %d in %s\n", r.Method, r.Target, resp.GetStatusCode(), time.Since(now))
 		return resp
 	})
 }
 
-// func headerAdder(next server.Handler) server.Handler {
-// 	return func(r *request.Request) response.Response {
-// 		resp := next(r)
-// 		fmt.Printf("%T\n", resp)
-// 		br, ok := resp.(*response.BaseResponse)
-// 		if !ok {
-// 			panic("cannot cast response into base response")
-// 		}
-// 		br.WithHeader("X-Server", "shadowfax")
-// 		return br
-// 	}
-// }
+func headerAdder(next server.Handler) server.Handler {
+	return func(r *request.Request) response.Response {
+		resp := next(r)
+		resp.WithHeader("X-Server", "shadowfax")
+		return resp
+	}
+}
 
 func userOnly(next server.Handler) server.Handler {
 	return func(r *request.Request) response.Response {
@@ -55,7 +50,7 @@ func userOnly(next server.Handler) server.Handler {
 
 func main() {
 	app := router.NewRouter()
-	app.Use(loggingMiddleware)
+	app.Use(loggingMiddleware, headerAdder)
 
 	fuckRouter := router.NewRouter()
 	fuckRouter.Use(userOnly)

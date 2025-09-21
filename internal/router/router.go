@@ -28,6 +28,7 @@ func NewRouter() *Router {
 		"PATCH":   NewTrieNode(),
 		"DELETE":  NewTrieNode(),
 		"OPTIONS": NewTrieNode(),
+		"HEAD":    NewTrieNode(),
 		"ANY":     NewTrieNode(),
 	}
 	return &Router{trees: methodTreeMap, notFoundHandler: defaultNotFoundHandler, middlewares: []Middleware{}}
@@ -51,7 +52,14 @@ func (r *Router) Patch(path string, handler server.Handler) {
 
 func (r *Router) Delete(path string, handler server.Handler) {
 	r.trees["DELETE"].AddRoute(path, handler)
+}
 
+func (r *Router) Options(path string, handler server.Handler) {
+	r.trees["OPTIONS"].AddRoute(path, handler)
+}
+
+func (r *Router) Head(path string, handler server.Handler) {
+	r.trees["HEAD"].AddRoute(path, handler)
 }
 
 func (r *Router) Handle(path string, handler server.Handler) {
@@ -83,6 +91,16 @@ func (router *Router) Handler() server.Handler {
 		if handler != nil {
 			r.PathParams = params
 			return handler(r)
+		}
+
+		// auto handle head using get, if the specialised head handler doesnt exist
+		if reqMethod == "HEAD" {
+			getHandler, params := router.trees["GET"].Match(path)
+			if getHandler != nil {
+				r.PathParams = params
+				resp := getHandler(r)
+				return resp.WithBody(nil) // remove body
+			}
 		}
 
 		// general method handler
