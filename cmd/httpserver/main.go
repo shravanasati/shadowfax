@@ -186,7 +186,12 @@ func main() {
 		return response.NewTextResponse("all good, frfr\n").WithStatusCode(response.StatusOK)
 	})
 
-	server, err := server.Serve(port, app.Handler())
+	server, err := server.Serve(server.ServerOpts{
+		Address: ":42069",
+		// Recovery: func(r any) response.Response {
+		// 	return response.NewTextResponse(fmt.Sprintf("sowwy I fucked up due to %v :<)", r))
+		// },
+	}, app.Handler())
 
 	if err != nil {
 		log.Fatalf("Error starting server: %v", err)

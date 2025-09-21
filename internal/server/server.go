@@ -2,9 +2,7 @@ package server
 
 import (
 	"fmt"
-	"log"
 	"net"
-	"runtime/debug"
 	"sync/atomic"
 
 	"github.com/shravanasati/shadowfax/internal/request"
@@ -12,7 +10,7 @@ import (
 )
 
 type Server struct {
-	port     uint16
+	opts     ServerOpts
 	listener net.Listener
 	closed   atomic.Bool
 	handler  Handler
@@ -24,7 +22,7 @@ func (s *Server) Close() error {
 }
 
 func (s *Server) listen() error {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
+	listener, err := net.Listen("tcp", s.opts.Address)
 	if err != nil {
 		return err
 	}
@@ -43,9 +41,7 @@ func (s *Server) listen() error {
 func (s *Server) handle(conn net.Conn) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Println("recovered from panic:", r)
-			debug.PrintStack()
-			resp := response.NewTextResponse(response.GetStatusReason(response.StatusInternalServerError)).WithStatusCode(response.StatusInternalServerError)
+			resp := s.opts.Recovery(r)
 			resp.Write(conn)
 			conn.Close()
 			return
@@ -77,15 +73,18 @@ func (s *Server) handle(conn net.Conn) {
 	}
 }
 
-func newServer(port uint16, handler Handler) (*Server, error) {
+func newServer(opts ServerOpts, handler Handler) (*Server, error) {
+	if opts.Recovery == nil {
+		opts.Recovery = defaultRecovery
+	}
 	return &Server{
-		port:    port,
+		opts:    opts,
 		handler: handler,
 	}, nil
 }
 
-func Serve(port uint16, handler Handler) (*Server, error) {
-	s, err := newServer(port, handler)
+func Serve(opts ServerOpts, handler Handler) (*Server, error) {
+	s, err := newServer(opts, handler)
 	if err != nil {
 		return nil, err
 	}
