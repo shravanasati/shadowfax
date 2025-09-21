@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-func NewFileResponse(f *os.File) *BaseResponse {
+func NewFileResponse(f *os.File) Response {
 	st, err := f.Stat()
 	br := NewBaseResponse()
 	if err == nil {

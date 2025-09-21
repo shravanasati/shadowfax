@@ -90,7 +90,7 @@ func (cr *chunkedReader) Read(p []byte) (int, error) {
 }
 
 type StreamResponse struct {
-	*BaseResponse
+	Response
 	Stream      StreamFunc
 	trailerList []string
 	Trailers    *headers.Headers
@@ -98,7 +98,7 @@ type StreamResponse struct {
 
 func NewStreamResponse(sf StreamFunc, trailers []string) *StreamResponse {
 	sr := &StreamResponse{
-		BaseResponse: NewBaseResponse().
+		Response: NewBaseResponse().
 			WithHeader("transfer-encoding", "chunked"),
 		Stream:      sf,
 		trailerList: trailers,
@@ -106,10 +106,10 @@ func NewStreamResponse(sf StreamFunc, trailers []string) *StreamResponse {
 	}
 
 	if len(trailers) > 0 {
-		sr.BaseResponse.WithHeader("Trailer", strings.Join(trailers, ", "))
+		sr.WithHeader("Trailer", strings.Join(trailers, ", "))
 	}
 
-	sr.BaseResponse.WithBody(&chunkedReader{
+	sr.WithBody(&chunkedReader{
 		r:        sr.Reader(),
 		trailers: sr.Trailers,
 	})

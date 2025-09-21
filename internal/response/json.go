@@ -7,10 +7,10 @@ import (
 )
 
 type JSONResponse struct {
-	*BaseResponse
+	Response
 }
 
-func NewJSONResponse(data any) (*JSONResponse, error) {
+func NewJSONResponse(data any) (Response, error) {
 	body, err := json.Marshal(data)
 
 	if err != nil {
@@ -23,6 +23,6 @@ func NewJSONResponse(data any) (*JSONResponse, error) {
 		WithBody(bytes.NewReader(body))
 
 	return &JSONResponse{
-		BaseResponse: br,
+		Response: br,
 	}, err
 }

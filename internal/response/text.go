@@ -6,16 +6,16 @@ import (
 )
 
 type TextResponse struct {
-	*BaseResponse
+	Response
 }
 
-func NewTextResponse(body string) *TextResponse {
+func NewTextResponse(body string) Response {
 	br := NewBaseResponse().
 		WithHeader("content-type", "text/plain").
 		WithHeader("content-length", strconv.Itoa(len(body))).
 		WithBody(strings.NewReader(body))
 
 	return &TextResponse{
-		BaseResponse: br,
+		Response: br,
 	}
 }

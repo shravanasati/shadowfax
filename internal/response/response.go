@@ -9,6 +9,15 @@ import (
 
 type Response interface {
 	Write(io.Writer) error
+
+	GetStatusCode() StatusCode
+	GetHeaders() *headers.Headers
+	GetBody() io.Reader
+
+	WithStatusCode(StatusCode) Response
+	WithHeader(key, value string) Response
+	WithHeaders(map[string]string) Response
+	WithBody(io.Reader) Response
 }
 
 type ResponseWriter struct {

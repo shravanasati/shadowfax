@@ -13,7 +13,7 @@ type BaseResponse struct {
 	Body       io.Reader
 }
 
-func NewBaseResponse() *BaseResponse {
+func NewBaseResponse() Response {
 	hs := headers.NewHeaders()
 	hs.Add("connection", "close")
 	return &BaseResponse{
@@ -22,24 +22,36 @@ func NewBaseResponse() *BaseResponse {
 	}
 }
 
-func (r *BaseResponse) WithStatusCode(code StatusCode) *BaseResponse {
+func (r *BaseResponse) GetStatusCode() StatusCode {
+	return r.StatusCode
+}
+
+func (r *BaseResponse) GetHeaders() *headers.Headers {
+	return r.Headers
+}
+
+func (r *BaseResponse) GetBody() io.Reader {
+	return r.Body
+}
+
+func (r *BaseResponse) WithStatusCode(code StatusCode) Response {
 	r.StatusCode = code
 	return r
 }
 
-func (r *BaseResponse) WithHeader(key, value string) *BaseResponse {
+func (r *BaseResponse) WithHeader(key, value string) Response {
 	r.Headers.Add(key, value)
 	return r
 }
 
-func (r *BaseResponse) WithHeaders(headers map[string]string) *BaseResponse {
+func (r *BaseResponse) WithHeaders(headers map[string]string) Response {
 	for key, value := range headers {
 		r.Headers.Add(key, value)
 	}
 	return r
 }
 
-func (r *BaseResponse) WithBody(body io.Reader) *BaseResponse {
+func (r *BaseResponse) WithBody(body io.Reader) Response {
 	r.Body = body
 	return r
 }
