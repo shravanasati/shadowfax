@@ -5,6 +5,8 @@ import (
 	"strconv"
 )
 
+// todo detect mimetype
+
 func NewFileResponse(f *os.File) Response {
 	st, err := f.Stat()
 	br := NewBaseResponse()

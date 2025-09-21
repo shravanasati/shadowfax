@@ -63,6 +63,10 @@ func main() {
 		panic("boom")
 	})
 
+	app.Get("/index", func(r *request.Request) response.Response {
+		return response.NewHTMLResponse(`<h1>hullo</h1>`)
+	})
+
 	app.Get("/yourproblem", func(r *request.Request) response.Response {
 		return response.
 			NewTextResponse("your problem is not my problem\n").
