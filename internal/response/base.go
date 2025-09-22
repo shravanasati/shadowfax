@@ -16,7 +16,6 @@ type BaseResponse struct {
 // NewBaseResponse creates a new BaseResponse with 200 status code.
 func NewBaseResponse() Response {
 	hs := headers.NewHeaders()
-	hs.Add("connection", "close")
 	return &BaseResponse{
 		Headers:    hs,
 		StatusCode: 200,

@@ -120,7 +120,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	return &Request{RequestLine: *requestLine, Headers: *headers, reader: reader, Query: q}, nil
 }
 
-func (r *Request) contentLength() int64 {
+func (r *Request) ContentLength() int64 {
 	contentLength := r.Headers.Get("content-length")
 	if contentLength == "" {
 		return 0
@@ -134,7 +134,7 @@ func (r *Request) contentLength() int64 {
 	return int64(contentLengthInt)
 }
 
-func (r *Request) transferEncodings() ([]string, error) {
+func (r *Request) TransferEncodings() ([]string, error) {
 	transferEncoding := r.Headers.Get("transfer-encoding")
 	if transferEncoding == "" {
 		return nil, nil
@@ -171,7 +171,7 @@ func (r *Request) transferEncodings() ([]string, error) {
 // Make sure to close the body after it has been used.
 func (r *Request) Body() (io.ReadCloser, error) {
 	// check for chunked transfer encoding header first
-	tencs, err := r.transferEncodings()
+	tencs, err := r.TransferEncodings()
 	if err != nil {
 		return nil, err
 	}
@@ -201,6 +201,6 @@ func (r *Request) Body() (io.ReadCloser, error) {
 	}
 
 	// check for content-length header next
-	contentLength := r.contentLength()
+	contentLength := r.ContentLength()
 	return newBodyReader(r.reader, int64(contentLength)), nil
 }

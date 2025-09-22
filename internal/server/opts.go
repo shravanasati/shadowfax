@@ -12,6 +12,7 @@ import (
 // Address defaults to `:42069`.
 // Recovery function by default prints the stack trace and writes a 500 Internal Server Error response.
 // Read and write timeout default to 0, implying there's no timeout on either operation.
+// KeepAliveTimeout defaults to 0, which disables keep-alive.
 type ServerOpts struct {
 	// The address for the server to listen on.
 	Address string
@@ -24,6 +25,10 @@ type ServerOpts struct {
 
 	// Sets a write deadline on the underlying connection.
 	WriteTimeout time.Duration
+
+	// KeepAliveTimeout sets the idle timeout for keep-alive connections.
+	// If zero, keep-alive is disabled. Overrides read and write timeout.
+	KeepAliveTimeout time.Duration
 }
 
 var defaultRecovery = func(r any) response.Response {

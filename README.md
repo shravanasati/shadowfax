@@ -20,6 +20,7 @@ A fast, lightweight HTTP/1.1 server built from scratch in Go. Shadowfax implemen
 - **Response writer** - Efficient response generation with proper HTTP formatting
 - **Chunked transfer encoding** - Support for streaming responses with trailers
 - **Content-Length handling** - Automatic body size detection and headers
+- **Persistent Connections** - Supports persistent connections via `KeepAliveTimeout` configuration option
 
 ### Web Server Abstractions
 - **Prefix-tree router** - Fast O(log n) routing with trie-based path matching
@@ -397,6 +398,7 @@ srv, err := server.Serve(server.ServerOpts{
 - `Address` - Server bind address (e.g., ":8080", "localhost:3000")
 - `ReadTimeout` - Maximum duration for reading the entire request (including body)
 - `WriteTimeout` - Maximum duration for writing the response
+- `KeepAliveTimeout` - Maximum duration for idle connection. Defaults to 0, which disables keep-alive.
 - `Recovery` - Custom panic recovery function
 
 #### Custom 404 Handler
@@ -591,7 +593,3 @@ go test -cover ./...
 ## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details.
-
----
-
-**⚡ Shadowfax** - *Swift as the wind, reliable as the earth*

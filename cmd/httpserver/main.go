@@ -202,6 +202,7 @@ func main() {
 		// 	return response.NewTextResponse(fmt.Sprintf("sowwy I fucked up due to %v :<)", r))
 		// },
 		ReadTimeout:  30 * time.Second,
+		KeepAliveTimeout: 10 * time.Second,
 		// WriteTimeout: time.Second,
 	}, app.Handler())
 

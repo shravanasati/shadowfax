@@ -53,6 +53,11 @@ func (s *Server) listen() error {
 }
 
 func (s *Server) handle(conn net.Conn) {
+	shouldCloseConn := false
+	if s.opts.KeepAliveTimeout == 0 {
+		shouldCloseConn = true
+	}
+
 	defer func() {
 		if r := recover(); r != nil {
 			resp := s.opts.Recovery(r)
@@ -61,41 +66,81 @@ func (s *Server) handle(conn net.Conn) {
 			return
 		}
 
-		// todo remove when keep alive is used
-		if conn != nil {
-			conn.Close()
+		if conn != nil && shouldCloseConn {
+			if err := conn.Close(); err != nil {
+				log.Println("unable to close connection", err)
+			}
 		}
 	}()
 
-	req, err := request.RequestFromReader(conn)
-	// fmt.Println(req, err)
-	if err != nil {
-		response.NewBaseResponse().WithStatusCode(400).Write(conn)
-		return
-	}
-	hostHeader := req.Headers.Get("host")
-	if hostHeader == "" || len(strings.Split(hostHeader, ",")) > 1 {
-		response.NewBaseResponse().WithStatusCode(400).Write(conn)
-		return
-	}
+	for {
+		if s.opts.KeepAliveTimeout != 0 {
+			conn.SetDeadline(time.Now().Add(s.opts.KeepAliveTimeout))
+		}
 
-	// bodyReader := req.Body()
-	// defer bodyReader.Close()
+		badReqResponse := response.NewBaseResponse().WithStatusCode(response.StatusBadRequest)
+		req, err := request.RequestFromReader(conn)
+		if err != nil {
+			// invalid request
+			badReqResponse.Write(conn)
+			shouldCloseConn = true
+			break
+		}
 
-	// b, e := io.ReadAll(bodyReader)
-	// fmt.Println("Body:", string(b), "Error:", e)
+		hostHeader := req.Headers.Get("host")
+		if hostHeader == "" || len(strings.Split(hostHeader, ",")) > 1 {
+			// more than one hosts not allowed
+			badReqResponse.Write(conn)
+			shouldCloseConn = true
+			break
+		}
 
-	resp := s.handler(req)
-	if dateHeader := resp.GetHeaders().Get(""); dateHeader == "" {
+		if req.Headers.Get("content-length") != "" && req.Headers.Get("transfer-encoding") != "" {
+			// requests containing both content length and transfer encoding
+			// headers MAY be rejected by the server as per the RFC
+			// https://datatracker.ietf.org/doc/html/rfc9112#section-6.1-15
+			// we're going to reject it
+			badReqResponse.Write(conn)
+			shouldCloseConn = true
+			break
+		}
+
+		_, err = req.TransferEncodings()
+		if err != nil {
+			// last transfer encoding must be chunked
+			// https://datatracker.ietf.org/doc/html/rfc9112#section-6.3-2.4.3
+			badReqResponse.Write(conn)
+			shouldCloseConn = true
+			break
+		}
+
+		resp := s.handler(req)
+		resp.GetHeaders().Remove("date")
 		resp.WithHeader("date", time.Now().Format(time.RFC1123))
-	}
-	err = resp.Write(conn)
-	if err != nil {
-		log.Println("unable to write response to connection:", err)
+		if shouldCloseConn {
+			resp.WithHeader("connection", "close")
+		}
+
+		err = resp.Write(conn)
+		if err != nil {
+			log.Println("unable to write response to connection:", err)
+			shouldCloseConn = true
+			break
+		}
+
+		if strings.TrimSpace(strings.ToLower(req.Headers.Get("connection"))) == "close" {
+			// if the client requests connection close, respect it
+			shouldCloseConn = true
+			break
+		}
+
+		if shouldCloseConn {
+			break
+		}
 	}
 }
 
-func newServer(opts ServerOpts, handler Handler) (*Server) {
+func newServer(opts ServerOpts, handler Handler) *Server {
 	if opts.Recovery == nil {
 		opts.Recovery = defaultRecovery
 	}
