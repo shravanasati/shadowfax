@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -55,6 +56,10 @@ func parseRequestLine(reqLine []byte) (*RequestLine, error) {
 	}, nil
 }
 
+// Parses the HTTP request from the reader. The requests are lazily evaluated,
+// only the request line and headers are parsed. The body is parsed when the
+// [Request.Body] method is called. Any errors during the body parsing would
+// be returned by the same method.
 func RequestFromReader(reader io.Reader) (*Request, error) {
 
 	lineCount := 0
@@ -125,9 +130,51 @@ func (r *Request) contentLength() int64 {
 	return int64(contentLengthInt)
 }
 
+func (r *Request) transferEncodings() ([]string, error) {
+	transferEncoding := r.Headers.Get("transfer-encoding")
+	encodings := strings.Split(transferEncoding, ",")
+	// receiver should decode encodings in reverse
+	slices.Reverse(encodings)
+	chunked := false
+
+	for _, enc := range encodings {
+		enc = strings.ToLower(strings.TrimSpace(enc))
+		if enc != "chunked" {
+			// no other transfer encoding (gzip, deflate, zstd, etc) supported
+			return nil, ErrNotImplemented
+		} else {
+			chunked = true
+		}
+	}
+
+	if chunked {
+		return []string{"chunked"}, nil
+	}
+	return nil, nil
+}
+
 // Returns an [io.ReadCloser] interface. Make sure to close the body after it has been used.
-func (r *Request) Body() io.ReadCloser {
-	// check for content-length header first
+func (r *Request) Body() (io.ReadCloser, error) {
+	// check for chunked transfer encoding header first
+	tencs, err := r.transferEncodings()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(tencs) > 0 {
+		for _, enc := range tencs {
+			switch enc {
+			case "chunked":
+				cr := newChunkedReader(r.reader)
+				cr.Ra
+			default:
+				return nil, ErrNotImplemented
+			}
+		}
+		r.Headers.Remove("transfer-encoding")
+	}
+
+	// check for content-length header next
 	contentLength := r.contentLength()
-	return newBodyReader(r.reader, int64(contentLength))
+	return newBodyReader(r.reader, int64(contentLength)), nil
 }

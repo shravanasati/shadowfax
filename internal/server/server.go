@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"sync/atomic"
+	"time"
 
 	"github.com/shravanasati/shadowfax/internal/request"
 	"github.com/shravanasati/shadowfax/internal/response"
@@ -67,6 +68,9 @@ func (s *Server) handle(conn net.Conn) {
 	// fmt.Println("Body:", string(b), "Error:", e)
 
 	resp := s.handler(req)
+	if dateHeader := resp.GetHeaders().Get(""); dateHeader == "" {
+		resp.WithHeader("date", time.Now().Format(time.RFC1123))
+	}
 	err = resp.Write(conn)
 	if err != nil {
 		fmt.Println("resp writing error", err)

@@ -170,7 +170,8 @@ func TestBodyParse(t *testing.T) {
 	r, err := RequestFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	bodyReader := r.Body()
+	bodyReader, err := r.Body()
+	require.NoError(t, err)
 	defer bodyReader.Close()
 	bodyBytes, err := io.ReadAll(bodyReader)
 	require.NoError(t, err)
@@ -187,7 +188,8 @@ func TestBodyParse(t *testing.T) {
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	bodyReader = r.Body()
+	bodyReader, err = r.Body()
+	require.NoError(t, err)
 	defer bodyReader.Close()
 	bodyBytes, err = io.ReadAll(bodyReader)
 	require.NoError(t, err)
@@ -205,7 +207,8 @@ func TestBodyParse(t *testing.T) {
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	bodyReader = r.Body()
+	bodyReader, err = r.Body()
+	require.NoError(t, err)
 	defer bodyReader.Close()
 	_, err = io.ReadAll(bodyReader)
 	require.Error(t, err) // Should error when body is shorter than content-length
@@ -222,7 +225,8 @@ func TestBodyParse(t *testing.T) {
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	bodyReader = r.Body()
+	bodyReader, err = r.Body()
+	require.NoError(t, err)
 	defer bodyReader.Close()
 	bodyBytes, err = io.ReadAll(bodyReader)
 	require.NoError(t, err)
@@ -239,7 +243,8 @@ func TestBodyParse(t *testing.T) {
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	bodyReader = r.Body()
+	bodyReader, err = r.Body()
+	require.NoError(t, err)
 	defer bodyReader.Close()
 	bodyBytes, err = io.ReadAll(bodyReader)
 	require.NoError(t, err)
@@ -257,9 +262,321 @@ func TestBodyParse(t *testing.T) {
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err) // Request parsing should succeed
 	require.NotNil(t, r)
-	bodyReader = r.Body()
+	bodyReader, err = r.Body()
+	require.NoError(t, err)
 	defer bodyReader.Close()
 	bodyBytes, err = io.ReadAll(bodyReader)
 	require.NoError(t, err)
 	assert.Equal(t, "", string(bodyBytes)) // Should have empty body for invalid content-length
+}
+
+func TestChunkedTransferEncoding(t *testing.T) {
+	// Test: Basic chunked transfer encoding
+	reader := &chunkReader{
+		data: "POST /upload HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Transfer-Encoding: chunked\r\n" +
+			"\r\n" +
+			"7\r\n" +
+			"Mozilla\r\n" +
+			"9\r\n" +
+			"Developer\r\n" +
+			"7\r\n" +
+			"Network\r\n" +
+			"0\r\n" +
+			"\r\n",
+		numBytesPerRead: 4,
+	}
+	r, err := RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	// Verify Transfer-Encoding header is removed
+	transferEncoding := r.Headers.Get("transfer-encoding")
+	assert.Equal(t, "", transferEncoding)
+
+	// Verify Content-Length header is present and correct
+	contentLength := r.Headers.Get("content-length")
+	assert.Equal(t, "23", contentLength) // "MozillaDeveloperNetwork" = 23 bytes
+
+	// Verify body content is correctly reconstructed
+	bodyReader, err := r.Body()
+	require.NoError(t, err)
+	defer bodyReader.Close()
+	bodyBytes, err := io.ReadAll(bodyReader)
+	require.NoError(t, err)
+	assert.Equal(t, "MozillaDeveloperNetwork", string(bodyBytes))
+
+	// Test: Chunked transfer encoding with extensions (should be ignored)
+	reader = &chunkReader{
+		data: "POST /upload HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Transfer-Encoding: chunked\r\n" +
+			"\r\n" +
+			"5;name=value\r\n" +
+			"hello\r\n" +
+			"6;another=ext\r\n" +
+			" world\r\n" +
+			"0\r\n" +
+			"\r\n",
+		numBytesPerRead: 3,
+	}
+	r, err = RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	// Verify Transfer-Encoding header is removed
+	transferEncoding = r.Headers.Get("transfer-encoding")
+	assert.Equal(t, "", transferEncoding)
+
+	// Verify Content-Length header is present and correct
+	contentLength = r.Headers.Get("content-length")
+	assert.Equal(t, "11", contentLength) // "hello world" = 11 bytes
+
+	// Verify body content is correctly reconstructed
+	bodyReader, err = r.Body()
+	require.NoError(t, err)
+	defer bodyReader.Close()
+	bodyBytes, err = io.ReadAll(bodyReader)
+	require.NoError(t, err)
+	assert.Equal(t, "hello world", string(bodyBytes))
+
+	// Test: Chunked transfer encoding with trailer headers
+	reader = &chunkReader{
+		data: "POST /upload HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Transfer-Encoding: chunked\r\n" +
+			"Trailer: Expires, Signature\r\n" +
+			"\r\n" +
+			"4\r\n" +
+			"test\r\n" +
+			"0\r\n" +
+			"Expires: Wed, 21 Oct 2015 07:28:00 GMT\r\n" +
+			"Signature: abc123\r\n" +
+			"\r\n",
+		numBytesPerRead: 5,
+	}
+	r, err = RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	// Verify Transfer-Encoding header is removed
+	transferEncoding = r.Headers.Get("transfer-encoding")
+	assert.Equal(t, "", transferEncoding)
+
+	// Verify Content-Length header is present
+	contentLength = r.Headers.Get("content-length")
+	assert.Equal(t, "4", contentLength)
+
+	// Verify trailer headers are added to main headers
+	expires := r.Headers.Get("expires")
+	assert.Equal(t, "Wed, 21 Oct 2015 07:28:00 GMT", expires)
+	signature := r.Headers.Get("signature")
+	assert.Equal(t, "abc123", signature)
+
+	// Verify body content
+	bodyReader, err = r.Body()
+	require.NoError(t, err)
+	defer bodyReader.Close()
+	bodyBytes, err = io.ReadAll(bodyReader)
+	require.NoError(t, err)
+	assert.Equal(t, "test", string(bodyBytes))
+
+	// Test: Empty chunked body
+	reader = &chunkReader{
+		data: "POST /upload HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Transfer-Encoding: chunked\r\n" +
+			"\r\n" +
+			"0\r\n" +
+			"\r\n",
+		numBytesPerRead: 2,
+	}
+	r, err = RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	// Verify Transfer-Encoding header is removed
+	transferEncoding = r.Headers.Get("transfer-encoding")
+	assert.Equal(t, "", transferEncoding)
+
+	// Verify Content-Length header is present and zero
+	contentLength = r.Headers.Get("content-length")
+	assert.Equal(t, "0", contentLength)
+
+	// Verify empty body
+	bodyReader, err = r.Body()
+	require.NoError(t, err)
+	defer bodyReader.Close()
+	bodyBytes, err = io.ReadAll(bodyReader)
+	require.NoError(t, err)
+	assert.Equal(t, "", string(bodyBytes))
+
+	// Test: Invalid chunk size (non-hex)
+	reader = &chunkReader{
+		data: "POST /upload HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Transfer-Encoding: chunked\r\n" +
+			"\r\n" +
+			"ZZ\r\n" +
+			"hello\r\n" +
+			"0\r\n" +
+			"\r\n",
+		numBytesPerRead: 3,
+	}
+	r, err = RequestFromReader(reader)
+	require.NoError(t, err) // Request parsing should succeed
+	require.NotNil(t, r)
+
+	// Error should occur when trying to read the body
+	_, err = r.Body()
+	require.Error(t, err)
+
+	// Test: Missing final chunk
+	reader = &chunkReader{
+		data: "POST /upload HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Transfer-Encoding: chunked\r\n" +
+			"\r\n" +
+			"5\r\n" +
+			"hello\r\n",
+		numBytesPerRead: 4,
+	}
+	r, err = RequestFromReader(reader)
+	require.NoError(t, err) // Request parsing should succeed
+	require.NotNil(t, r)
+
+	// Error should occur when trying to read the body
+	_, err = r.Body()
+	require.Error(t, err)
+
+	// Test: Chunk data shorter than declared size
+	reader = &chunkReader{
+		data: "POST /upload HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Transfer-Encoding: chunked\r\n" +
+			"\r\n" +
+			"10\r\n" +
+			"short\r\n" +
+			"0\r\n" +
+			"\r\n",
+		numBytesPerRead: 3,
+	}
+	r, err = RequestFromReader(reader)
+	require.NoError(t, err) // Request parsing should succeed
+	require.NotNil(t, r)
+
+	// Error should occur when trying to read the body
+	_, err = r.Body()
+	require.Error(t, err)
+}
+
+func TestUnsupportedTransferEncodings(t *testing.T) {
+	// Test: Gzip transfer encoding should return not implemented error when body is read
+	reader := &chunkReader{
+		data: "POST /upload HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Transfer-Encoding: gzip\r\n" +
+			"\r\n" +
+			"some gzipped content here",
+		numBytesPerRead: 4,
+	}
+	r, err := RequestFromReader(reader)
+	require.NoError(t, err) // Request parsing should succeed
+	require.NotNil(t, r)
+
+	// Error should occur when trying to read the body
+	_, err = r.Body()
+	require.Error(t, err)
+	assert.Equal(t, ErrNotImplemented, err)
+
+	// Test: Deflate transfer encoding should return not implemented error when body is read
+	reader = &chunkReader{
+		data: "POST /upload HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Transfer-Encoding: deflate\r\n" +
+			"\r\n" +
+			"some deflated content here",
+		numBytesPerRead: 3,
+	}
+	r, err = RequestFromReader(reader)
+	require.NoError(t, err) // Request parsing should succeed
+	require.NotNil(t, r)
+
+	// Error should occur when trying to read the body
+	_, err = r.Body()
+	require.Error(t, err)
+	assert.Equal(t, ErrNotImplemented, err)
+
+	// Test: Compress transfer encoding should return not implemented error when body is read
+	reader = &chunkReader{
+		data: "POST /upload HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Transfer-Encoding: compress\r\n" +
+			"\r\n" +
+			"some compressed content here",
+		numBytesPerRead: 5,
+	}
+	r, err = RequestFromReader(reader)
+	require.NoError(t, err) // Request parsing should succeed
+	require.NotNil(t, r)
+
+	// Error should occur when trying to read the body
+	_, err = r.Body()
+	require.Error(t, err)
+	assert.Equal(t, ErrNotImplemented, err)
+
+	// Test: Multiple transfer encodings with unsupported encoding
+	reader = &chunkReader{
+		data: "POST /upload HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Transfer-Encoding: chunked, gzip\r\n" +
+			"\r\n" +
+			"some content here",
+		numBytesPerRead: 4,
+	}
+	r, err = RequestFromReader(reader)
+	require.NoError(t, err) // Request parsing should succeed
+	require.NotNil(t, r)
+
+	// Error should occur when trying to read the body
+	_, err = r.Body()
+	require.Error(t, err)
+	assert.Equal(t, ErrNotImplemented, err)
+
+	// Test: Custom/unknown transfer encoding should return not implemented error when body is read
+	reader = &chunkReader{
+		data: "POST /upload HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Transfer-Encoding: custom-encoding\r\n" +
+			"\r\n" +
+			"some custom encoded content here",
+		numBytesPerRead: 6,
+	}
+	r, err = RequestFromReader(reader)
+	require.NoError(t, err) // Request parsing should succeed
+	require.NotNil(t, r)
+
+	// Error should occur when trying to read the body
+	_, err = r.Body()
+	require.Error(t, err)
+	assert.Equal(t, ErrNotImplemented, err)
+
+	// Test: Case insensitive unsupported transfer encoding
+	reader = &chunkReader{
+		data: "POST /upload HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Transfer-Encoding: GZIP\r\n" +
+			"\r\n" +
+			"some gzipped content here",
+		numBytesPerRead: 3,
+	}
+	r, err = RequestFromReader(reader)
+	require.NoError(t, err) // Request parsing should succeed
+	require.NotNil(t, r)
+
+	// Error should occur when trying to read the body
+	_, err = r.Body()
+	require.Error(t, err)
+	assert.Equal(t, ErrNotImplemented, err)
 }

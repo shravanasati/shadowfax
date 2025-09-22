@@ -5,9 +5,7 @@ import (
 	"iter"
 	"maps"
 	"regexp"
-	"strconv"
 	"strings"
-	"time"
 )
 
 // https://datatracker.ietf.org/doc/html/rfc9110#name-tokens
@@ -30,6 +28,10 @@ func (h *Headers) Add(key, value string) {
 func (h *Headers) Get(key string) string {
 	key = strings.ToLower(key)
 	return h.headers[key]
+}
+
+func (h *Headers) Remove(key string) {
+	delete(h.headers, key)
 }
 
 func (h *Headers) All() iter.Seq2[string, string] {
@@ -58,13 +60,6 @@ func (h *Headers) ParseFieldLine(data []byte) (err error) {
 
 	h.Add(string(hkey), string(hvalue))
 	return nil
-}
-
-func (h *Headers) AddDefaultHeaders(contentLength int) {
-	h.Add("content-length", strconv.Itoa(contentLength))
-	h.Add("connection", "close")
-	h.Add("content-type", "text/plain")
-	h.Add("date", time.Now().Format(time.RFC1123))
 }
 
 func (h *Headers) Size() int {
