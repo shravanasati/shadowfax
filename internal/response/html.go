@@ -5,10 +5,12 @@ import (
 	"strings"
 )
 
+// HTMLResponse is a response that sends HTML.
 type HTMLResponse struct {
 	Response
 }
 
+// NewHTMLResponse creates a new HTML response.
 func NewHTMLResponse(body string) Response {
 	br := NewBaseResponse().
 		WithHeader("content-type", "text/html").

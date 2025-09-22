@@ -7,19 +7,29 @@ import (
 	"github.com/shravanasati/shadowfax/internal/headers"
 )
 
+// Response is the interface that all responses must implement.
 type Response interface {
+	// Write writes the response to the given writer.
 	Write(io.Writer) error
 
+	// GetStatusCode returns the status code of the response.
 	GetStatusCode() StatusCode
+	// GetHeaders returns the headers of the response.
 	GetHeaders() *headers.Headers
+	// GetBody returns the body of the response.
 	GetBody() io.Reader
 
+	// WithStatusCode sets the status code of the response.
 	WithStatusCode(StatusCode) Response
+	// WithHeader adds a header to the response.
 	WithHeader(key, value string) Response
+	// WithHeaders adds multiple headers to the response.
 	WithHeaders(map[string]string) Response
+	// WithBody sets the body of the response.
 	WithBody(io.Reader) Response
 }
 
+// ResponseWriter is a writer for responses.
 type ResponseWriter struct {
 	conn  io.Writer
 	state responseState

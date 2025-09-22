@@ -5,10 +5,12 @@ import (
 	"strings"
 )
 
+// TextResponse is a response that sends plain text.
 type TextResponse struct {
 	Response
 }
 
+// NewTextResponse creates a new text response.
 func NewTextResponse(body string) Response {
 	br := NewBaseResponse().
 		WithHeader("content-type", "text/plain").

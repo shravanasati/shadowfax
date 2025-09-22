@@ -7,6 +7,8 @@ import (
 
 // todo detect mimetype
 
+// NewFileResponse creates a new file response. It sets the content length
+// header if the size of the file is known, otherwise it uses chunked encoding.
 func NewFileResponse(f *os.File) Response {
 	st, err := f.Stat()
 	br := NewBaseResponse()

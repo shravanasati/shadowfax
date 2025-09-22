@@ -9,9 +9,13 @@ import (
 	"github.com/shravanasati/shadowfax/internal/headers"
 )
 
+// TrailerSetter is a function that sets a trailer header.
 type TrailerSetter func(key, value string)
+
+// StreamFunc is a function that writes to a stream.
 type StreamFunc func(w io.Writer, setTrailer TrailerSetter) error
 
+// Reader returns a reader for the stream.
 func (sr *StreamResponse) Reader() io.Reader {
 	pr, pw := io.Pipe()
 
@@ -89,6 +93,7 @@ func (cr *chunkedReader) Read(p []byte) (int, error) {
 	return 0, err
 }
 
+// StreamResponse is a response that streams data.
 type StreamResponse struct {
 	Response
 	Stream      StreamFunc
@@ -96,6 +101,7 @@ type StreamResponse struct {
 	Trailers    *headers.Headers
 }
 
+// NewStreamResponse creates a new stream response.
 func NewStreamResponse(sf StreamFunc, trailers []string) *StreamResponse {
 	sr := &StreamResponse{
 		Response: NewBaseResponse().

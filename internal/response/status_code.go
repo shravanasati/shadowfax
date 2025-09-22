@@ -139,6 +139,7 @@ var reasonPhrases = map[StatusCode]string{
 	StatusNetworkAuthenticationRequired: "Network Authentication Required",
 }
 
+// GetStatusReason returns the reason phrase for the given status code.
 func GetStatusReason(s StatusCode) string {
 	return reasonPhrases[s]
 }

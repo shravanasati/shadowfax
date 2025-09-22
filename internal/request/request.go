@@ -13,6 +13,7 @@ import (
 	"github.com/shravanasati/shadowfax/internal/headers"
 )
 
+// MethodType is the type of an HTTP method.
 type MethodType string
 
 const (
@@ -28,12 +29,14 @@ const (
 
 var emptyByteSlice = []byte("")
 
+// RequestLine is the first line of an HTTP request.
 type RequestLine struct {
 	Method      string
 	Target      string
 	HTTPVersion string
 }
 
+// Request is an HTTP request.
 type Request struct {
 	RequestLine
 	Headers    headers.Headers
@@ -57,10 +60,10 @@ func parseRequestLine(reqLine []byte) (*RequestLine, error) {
 	}, nil
 }
 
-// Parses the HTTP request from the reader. The requests are lazily evaluated,
-// only the request line and headers are parsed. The body is parsed when the
-// [Request.Body] method is called. Any errors during the body parsing would
-// be returned by the same method.
+// RequestFromReader parses an HTTP request from a reader.
+// The requests are lazily evaluated, only the request line and headers are parsed.
+// The body is parsed when the [Request.Body] method is called.
+// Any errors during the body parsing would be returned by the same method.
 func RequestFromReader(reader io.Reader) (*Request, error) {
 
 	lineCount := 0
@@ -164,7 +167,8 @@ func (r *Request) transferEncodings() ([]string, error) {
 	return nil, nil
 }
 
-// Returns an [io.ReadCloser] interface. Make sure to close the body after it has been used.
+// Body returns an [io.ReadCloser] for the request body.
+// Make sure to close the body after it has been used.
 func (r *Request) Body() (io.ReadCloser, error) {
 	// check for chunked transfer encoding header first
 	tencs, err := r.transferEncodings()

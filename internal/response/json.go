@@ -6,10 +6,12 @@ import (
 	"strconv"
 )
 
+// JSONResponse is a response that sends JSON.
 type JSONResponse struct {
 	Response
 }
 
+// NewJSONResponse creates a new JSON response.
 func NewJSONResponse(data any) (Response, error) {
 	body, err := json.Marshal(data)
 
