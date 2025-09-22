@@ -16,9 +16,45 @@ type Headers struct {
 	headers map[string]string
 }
 
+func isValidFieldName(key string) bool {
+	return fieldNameRegex.MatchString(key)
+}
+
+func validHeaderValueByte(c byte) bool {
+	switch {
+	case c == 0x09: // HTAB
+		return true
+	case c == 0x20: // SP
+		return true
+	case 0x21 <= c && c <= 0x7E: // VCHAR
+		return true
+	case c >= 0x80: // obs-text
+		return true
+	}
+	return false
+}
+
+func isValidFieldValue(val []byte) bool {
+	for _, b := range val {
+		if !validHeaderValueByte(b) {
+			return false
+		}
+	}
+	return true
+}
+
+func normalizeKey(key string) string {
+	return strings.ToLower(key)
+}
+
 // Add adds a new header. If the header already exists, the new value is appended to the existing value, separated by a comma.
 func (h *Headers) Add(key, value string) {
-	key = strings.ToLower(key)
+	if !isValidFieldName(key) || !isValidFieldValue([]byte(value)) {
+		// drop invalid headers to prevent response splitting
+		return
+	}
+
+	key = normalizeKey(key)
 	if existing, ok := h.headers[key]; ok {
 		// multiple values
 		h.headers[key] = existing + ", " + value
@@ -29,13 +65,13 @@ func (h *Headers) Add(key, value string) {
 
 // Get returns the value of a header.
 func (h *Headers) Get(key string) string {
-	key = strings.ToLower(key)
+	key = normalizeKey(key)
 	return h.headers[key]
 }
 
 // Remove removes a header.
 func (h *Headers) Remove(key string) {
-	delete(h.headers, key)
+	delete(h.headers, normalizeKey(key))
 }
 
 // All returns an iterator over all headers.
@@ -60,7 +96,7 @@ func (h *Headers) ParseFieldLine(data []byte) (err error) {
 		return ErrMalformedHeader
 	}
 
-	if !fieldNameRegex.Match(hkey) {
+	if !fieldNameRegex.Match(hkey) || !isValidFieldValue(hvalue) {
 		return ErrMalformedHeader
 	}
 

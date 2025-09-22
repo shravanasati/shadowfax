@@ -34,7 +34,8 @@ func (s *Server) listen() error {
 	for {
 		conn, err := s.listener.Accept()
 		if err != nil && !s.closed.Load() {
-			panic("unable to accept connection: " + err.Error())
+			log.Println("unable to accept connection: " + err.Error())
+			return err
 		}
 
 		if s.opts.ReadTimeout != 0 {
