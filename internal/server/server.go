@@ -18,6 +18,7 @@ type Server struct {
 	handler  Handler
 }
 
+// Shutdown the server.
 func (s *Server) Close() error {
 	s.closed.Store(true)
 	return s.listener.Close()
@@ -93,27 +94,36 @@ func (s *Server) handle(conn net.Conn) {
 	}
 }
 
-func newServer(opts ServerOpts, handler Handler) (*Server, error) {
+func newServer(opts ServerOpts, handler Handler) (*Server) {
 	if opts.Recovery == nil {
 		opts.Recovery = defaultRecovery
+	}
+	if opts.Address == "" {
+		opts.Address = ":42069"
 	}
 	return &Server{
 		opts:    opts,
 		handler: handler,
-	}, nil
+	}
 }
 
+// Starts the HTTP server with the given options and handler.
 func Serve(opts ServerOpts, handler Handler) (*Server, error) {
-	s, err := newServer(opts, handler)
-	if err != nil {
-		return nil, err
-	}
+	s := newServer(opts, handler)
 
+	errCh := make(chan error, 1)
 	go func() {
 		err := s.listen()
 		if err != nil {
-			panic(err)
+			errCh <- err
 		}
 	}()
-	return s, nil
+
+	// give the server a moment to start and potentially fail
+	select {
+	case err := <-errCh:
+		return nil, err
+	case <-time.After(100 * time.Millisecond):
+		return s, nil
+	}
 }

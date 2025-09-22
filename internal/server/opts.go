@@ -8,6 +8,10 @@ import (
 	"github.com/shravanasati/shadowfax/internal/response"
 )
 
+// Server configuration options.
+// Address defaults to `:42069`.
+// Recovery function by default prints the stack trace and writes a 500 Internal Server Error response.
+// Read and write timeout default to 0, implying there's no timeout on either operation.
 type ServerOpts struct {
 	// The address for the server to listen on.
 	Address string
@@ -25,6 +29,10 @@ type ServerOpts struct {
 var defaultRecovery = func(r any) response.Response {
 	log.Println("recovered from panic:", r)
 	debug.PrintStack()
-	resp := response.NewTextResponse(response.GetStatusReason(response.StatusInternalServerError)).WithStatusCode(response.StatusInternalServerError)
+
+	errorStatusCode := response.StatusInternalServerError
+	resp := response.
+		NewTextResponse(response.GetStatusReason(errorStatusCode)).
+		WithStatusCode(errorStatusCode)
 	return resp
 }
