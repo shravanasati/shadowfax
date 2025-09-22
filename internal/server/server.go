@@ -58,18 +58,22 @@ func (s *Server) handle(conn net.Conn) {
 		shouldCloseConn = true
 	}
 
+	// defers are stacked
+
+	defer func ()  {
+		if conn != nil && shouldCloseConn {
+			if err := conn.Close(); err != nil {
+				log.Println("unable to close connection", err)
+			}
+		}
+	}()
+
 	defer func() {
 		if r := recover(); r != nil {
 			resp := s.opts.Recovery(r)
 			resp.Write(conn)
 			conn.Close()
 			return
-		}
-
-		if conn != nil && shouldCloseConn {
-			if err := conn.Close(); err != nil {
-				log.Println("unable to close connection", err)
-			}
 		}
 	}()
 
@@ -137,6 +141,10 @@ func (s *Server) handle(conn net.Conn) {
 		if shouldCloseConn {
 			break
 		}
+
+		// this error is already checked via the transfer encoding check
+		b, _ := req.Body()
+		b.Close() // discard body from buffer
 	}
 }
 
