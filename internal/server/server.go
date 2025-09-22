@@ -1,7 +1,7 @@
 package server
 
 import (
-	"fmt"
+	"log"
 	"net"
 	"sync/atomic"
 	"time"
@@ -35,6 +35,16 @@ func (s *Server) listen() error {
 			panic("unable to accept connection: " + err.Error())
 		}
 
+		if s.opts.ReadTimeout != 0 {
+			if conn != nil {
+				conn.SetReadDeadline(time.Now().Add(s.opts.ReadTimeout))
+			}
+		}
+		if s.opts.WriteTimeout != 0 {
+			if conn != nil {
+				conn.SetWriteDeadline(time.Now().Add(s.opts.WriteTimeout))
+			}
+		}
 		go s.handle(conn)
 	}
 }
@@ -73,7 +83,7 @@ func (s *Server) handle(conn net.Conn) {
 	}
 	err = resp.Write(conn)
 	if err != nil {
-		fmt.Println("resp writing error", err)
+		log.Println("unable to write response to connection:", err)
 	}
 }
 

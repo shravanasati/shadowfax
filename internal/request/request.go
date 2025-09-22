@@ -192,7 +192,7 @@ func (r *Request) Body() (io.ReadCloser, error) {
 			}
 		}
 		// removing the header entirely because unrecognized encodings already
-		// return not implemented error 
+		// return not implemented error
 		r.Headers.Remove("transfer-encoding")
 	}
 

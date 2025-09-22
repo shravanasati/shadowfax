@@ -341,7 +341,6 @@ func TestChunkedTransferEncoding(t *testing.T) {
 	contentLength = r.Headers.Get("content-length")
 	assert.Equal(t, "11", contentLength) // "hello world" = 11 bytes
 
-
 	// Test: Chunked transfer encoding with trailer headers
 	reader = &chunkReader{
 		data: "POST /upload HTTP/1.1\r\n" +
@@ -383,7 +382,6 @@ func TestChunkedTransferEncoding(t *testing.T) {
 	signature := r.Headers.Get("signature")
 	assert.Equal(t, "abc123", signature)
 
-
 	// Test: Empty chunked body
 	reader = &chunkReader{
 		data: "POST /upload HTTP/1.1\r\n" +
@@ -413,7 +411,6 @@ func TestChunkedTransferEncoding(t *testing.T) {
 	// Verify Content-Length header is present and zero
 	contentLength = r.Headers.Get("content-length")
 	assert.Equal(t, "0", contentLength)
-
 
 	// Test: Invalid chunk size (non-hex)
 	reader = &chunkReader{
