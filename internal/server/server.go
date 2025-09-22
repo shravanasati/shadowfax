@@ -3,6 +3,7 @@ package server
 import (
 	"log"
 	"net"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -67,6 +68,11 @@ func (s *Server) handle(conn net.Conn) {
 	req, err := request.RequestFromReader(conn)
 	// fmt.Println(req, err)
 	if err != nil {
+		response.NewBaseResponse().WithStatusCode(400).Write(conn)
+		return
+	}
+	hostHeader := req.Headers.Get("host")
+	if hostHeader == "" || len(strings.Split(hostHeader, ",")) > 1 {
 		response.NewBaseResponse().WithStatusCode(400).Write(conn)
 		return
 	}

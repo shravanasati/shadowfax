@@ -74,7 +74,9 @@ func main() {
     
     // Start the server
     srv, err := server.Serve(server.ServerOpts{
-        Address: ":8080",
+        Address:      ":8080",
+        ReadTimeout:  30 * time.Second,
+        WriteTimeout: 10 * time.Second,
     }, app.Handler())
     
     if err != nil {
@@ -374,6 +376,29 @@ app.Use(corsMiddleware)
 
 ### Error Handling
 
+#### Server Configuration
+
+Configure server timeouts and recovery options:
+
+```go
+srv, err := server.Serve(server.ServerOpts{
+    Address:      ":8080",
+    ReadTimeout:  30 * time.Second,  // Maximum time to read the entire request
+    WriteTimeout: 10 * time.Second,  // Maximum time to write the response
+    Recovery: func(r any) response.Response {
+        log.Printf("Panic recovered: %v", r)
+        return response.NewTextResponse("Internal Server Error").
+            WithStatusCode(response.StatusInternalServerError)
+    },
+}, app.Handler())
+```
+
+**Configuration Options:**
+- `Address` - Server bind address (e.g., ":8080", "localhost:3000")
+- `ReadTimeout` - Maximum duration for reading the entire request (including body)
+- `WriteTimeout` - Maximum duration for writing the response
+- `Recovery` - Custom panic recovery function
+
 #### Custom 404 Handler
 
 ```go
@@ -389,7 +414,9 @@ app.NotFound(func(r *request.Request) response.Response {
 
 ```go
 srv, err := server.Serve(server.ServerOpts{
-    Address: ":8080",
+    Address:      ":8080",
+    ReadTimeout:  30 * time.Second,
+    WriteTimeout: 10 * time.Second,
     Recovery: func(r any) response.Response {
         log.Printf("Panic recovered: %v", r)
         return response.NewTextResponse("Internal Server Error").
@@ -452,8 +479,10 @@ func main() {
     
     // Start server
     srv, err := server.Serve(server.ServerOpts{
-        Address: ":8080",
-        Recovery: panicHandler,
+        Address:      ":8080",
+        ReadTimeout:  30 * time.Second,
+        WriteTimeout: 10 * time.Second,
+        Recovery:     panicHandler,
     }, app.Handler())
     
     if err != nil {
