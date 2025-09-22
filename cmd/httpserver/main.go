@@ -167,6 +167,16 @@ func main() {
 		return jr
 	})
 
+	app.Post("/upload", func(r *request.Request) response.Response {
+		body, err := r.Body()
+		if err != nil {
+			return response.NewTextResponse(err.Error()).WithStatusCode(response.StatusBadRequest)
+		}
+		content, err := io.ReadAll(body)
+		fmt.Println(string(content), err)
+		return response.NewBaseResponse()
+	})
+
 	app.Get("/file", func(r *request.Request) response.Response {
 		f, err := os.Open(`./assets/vim.mp4`)
 		if err != nil {

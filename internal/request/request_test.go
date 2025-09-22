@@ -291,14 +291,6 @@ func TestChunkedTransferEncoding(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
-	// Verify Transfer-Encoding header is removed
-	transferEncoding := r.Headers.Get("transfer-encoding")
-	assert.Equal(t, "", transferEncoding)
-
-	// Verify Content-Length header is present and correct
-	contentLength := r.Headers.Get("content-length")
-	assert.Equal(t, "23", contentLength) // "MozillaDeveloperNetwork" = 23 bytes
-
 	// Verify body content is correctly reconstructed
 	bodyReader, err := r.Body()
 	require.NoError(t, err)
@@ -306,6 +298,14 @@ func TestChunkedTransferEncoding(t *testing.T) {
 	bodyBytes, err := io.ReadAll(bodyReader)
 	require.NoError(t, err)
 	assert.Equal(t, "MozillaDeveloperNetwork", string(bodyBytes))
+
+	// Verify Transfer-Encoding header is removed
+	transferEncoding := r.Headers.Get("transfer-encoding")
+	assert.Equal(t, "", transferEncoding)
+
+	// Verify Content-Length header is present and correct
+	contentLength := r.Headers.Get("content-length")
+	assert.Equal(t, "23", contentLength) // "MozillaDeveloperNetwork" = 23 bytes
 
 	// Test: Chunked transfer encoding with extensions (should be ignored)
 	reader = &chunkReader{
@@ -325,6 +325,14 @@ func TestChunkedTransferEncoding(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
+	// Verify body content is correctly reconstructed
+	bodyReader, err = r.Body()
+	require.NoError(t, err)
+	defer bodyReader.Close()
+	bodyBytes, err = io.ReadAll(bodyReader)
+	require.NoError(t, err)
+	assert.Equal(t, "hello world", string(bodyBytes))
+
 	// Verify Transfer-Encoding header is removed
 	transferEncoding = r.Headers.Get("transfer-encoding")
 	assert.Equal(t, "", transferEncoding)
@@ -333,13 +341,6 @@ func TestChunkedTransferEncoding(t *testing.T) {
 	contentLength = r.Headers.Get("content-length")
 	assert.Equal(t, "11", contentLength) // "hello world" = 11 bytes
 
-	// Verify body content is correctly reconstructed
-	bodyReader, err = r.Body()
-	require.NoError(t, err)
-	defer bodyReader.Close()
-	bodyBytes, err = io.ReadAll(bodyReader)
-	require.NoError(t, err)
-	assert.Equal(t, "hello world", string(bodyBytes))
 
 	// Test: Chunked transfer encoding with trailer headers
 	reader = &chunkReader{
@@ -360,6 +361,14 @@ func TestChunkedTransferEncoding(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
+	// Verify body content
+	bodyReader, err = r.Body()
+	require.NoError(t, err)
+	defer bodyReader.Close()
+	bodyBytes, err = io.ReadAll(bodyReader)
+	require.NoError(t, err)
+	assert.Equal(t, "test", string(bodyBytes))
+
 	// Verify Transfer-Encoding header is removed
 	transferEncoding = r.Headers.Get("transfer-encoding")
 	assert.Equal(t, "", transferEncoding)
@@ -374,13 +383,6 @@ func TestChunkedTransferEncoding(t *testing.T) {
 	signature := r.Headers.Get("signature")
 	assert.Equal(t, "abc123", signature)
 
-	// Verify body content
-	bodyReader, err = r.Body()
-	require.NoError(t, err)
-	defer bodyReader.Close()
-	bodyBytes, err = io.ReadAll(bodyReader)
-	require.NoError(t, err)
-	assert.Equal(t, "test", string(bodyBytes))
 
 	// Test: Empty chunked body
 	reader = &chunkReader{
@@ -396,6 +398,14 @@ func TestChunkedTransferEncoding(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
+	// Verify empty body
+	bodyReader, err = r.Body()
+	require.NoError(t, err)
+	defer bodyReader.Close()
+	bodyBytes, err = io.ReadAll(bodyReader)
+	require.NoError(t, err)
+	assert.Equal(t, "", string(bodyBytes))
+
 	// Verify Transfer-Encoding header is removed
 	transferEncoding = r.Headers.Get("transfer-encoding")
 	assert.Equal(t, "", transferEncoding)
@@ -404,13 +414,6 @@ func TestChunkedTransferEncoding(t *testing.T) {
 	contentLength = r.Headers.Get("content-length")
 	assert.Equal(t, "0", contentLength)
 
-	// Verify empty body
-	bodyReader, err = r.Body()
-	require.NoError(t, err)
-	defer bodyReader.Close()
-	bodyBytes, err = io.ReadAll(bodyReader)
-	require.NoError(t, err)
-	assert.Equal(t, "", string(bodyBytes))
 
 	// Test: Invalid chunk size (non-hex)
 	reader = &chunkReader{

@@ -2,6 +2,7 @@ package request
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/url"
 	"regexp"
@@ -132,19 +133,29 @@ func (r *Request) contentLength() int64 {
 
 func (r *Request) transferEncodings() ([]string, error) {
 	transferEncoding := r.Headers.Get("transfer-encoding")
+	if transferEncoding == "" {
+		return nil, nil
+	}
 	encodings := strings.Split(transferEncoding, ",")
 	// receiver should decode encodings in reverse
 	slices.Reverse(encodings)
 	chunked := false
+	chunkedPos := 0
 
-	for _, enc := range encodings {
+	for i, enc := range encodings {
 		enc = strings.ToLower(strings.TrimSpace(enc))
 		if enc != "chunked" {
 			// no other transfer encoding (gzip, deflate, zstd, etc) supported
 			return nil, ErrNotImplemented
 		} else {
 			chunked = true
+			chunkedPos = i
 		}
+	}
+
+	if chunked && chunkedPos != 0 {
+		// https://datatracker.ietf.org/doc/html/rfc9112#name-transfer-encoding
+		return nil, fmt.Errorf("chunked must be the last transfer encoding")
 	}
 
 	if chunked {
@@ -166,11 +177,22 @@ func (r *Request) Body() (io.ReadCloser, error) {
 			switch enc {
 			case "chunked":
 				cr := newChunkedReader(r.reader)
-				cr.Ra
+				buf, trailers, err := cr.Decode()
+				if err != nil {
+					return nil, err
+				}
+				r.Headers.Remove("content-length")
+				r.Headers.Add("content-length", strconv.Itoa(buf.Len()))
+				for k, v := range trailers.All() {
+					r.Headers.Add(k, v)
+				}
+				r.reader = buf
 			default:
 				return nil, ErrNotImplemented
 			}
 		}
+		// removing the header entirely because unrecognized encodings already
+		// return not implemented error 
 		r.Headers.Remove("transfer-encoding")
 	}
 
