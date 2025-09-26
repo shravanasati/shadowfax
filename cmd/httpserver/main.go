@@ -52,13 +52,13 @@ func main() {
 	app := router.NewRouter()
 	app.Use(loggingMiddleware, headerAdder)
 
-	fuckRouter := router.NewRouter()
-	fuckRouter.Use(userOnly)
-	fuckRouter.Get("/*", func(r *request.Request) response.Response {
-		return response.NewTextResponse("fuck")
+	subRouter := router.NewRouter()
+	subRouter.Use(userOnly)
+	subRouter.Get("/*", func(r *request.Request) response.Response {
+		return response.NewTextResponse("sub")
 	})
 
-	app.Handle("/fuck", fuckRouter.Handler())
+	app.Handle("/sub", subRouter.Handler())
 	app.Handle("/panic", func(r *request.Request) response.Response {
 		panic("boom")
 	})
