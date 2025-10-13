@@ -40,11 +40,11 @@ func NewResponseWriter(conn io.Writer) *ResponseWriter {
 }
 
 func (rw *ResponseWriter) WriteStatusLine(statusCode StatusCode) error {
-	if rw.state != stateStatusLine {
-		return ErrStatusLineAlreadyWritten
-	}
 	if rw.conn == nil {
 		return fmt.Errorf("(write status line) writer is nil")
+	}
+	if rw.state != stateStatusLine {
+		return fmt.Errorf("%w: cannot write status line (state=%s)", ErrInvalidWriterState, rw.state)
 	}
 	_, err := fmt.Fprintf(rw.conn, "HTTP/1.1 %d %s\r\n", statusCode, GetStatusReason(statusCode))
 	if err != nil {
@@ -56,11 +56,11 @@ func (rw *ResponseWriter) WriteStatusLine(statusCode StatusCode) error {
 }
 
 func (rw *ResponseWriter) WriteHeaders(h *headers.Headers) error {
-	if rw.state != stateHeaders {
-		return ErrHeadersAlreadyWritten
-	}
 	if rw.conn == nil {
 		return fmt.Errorf("(write headers) writer is nil")
+	}
+	if rw.state != stateHeaders {
+		return fmt.Errorf("%w: cannot write headers (state=%s)", ErrInvalidWriterState, rw.state)
 	}
 	for k, v := range h.All() {
 		fmt.Fprintf(rw.conn, "%s: %s\r\n", k, v)
@@ -71,11 +71,11 @@ func (rw *ResponseWriter) WriteHeaders(h *headers.Headers) error {
 }
 
 func (rw *ResponseWriter) WriteBody(b io.Reader) error {
-	if rw.state != stateBody {
-		return ErrNoBodyState
-	}
 	if rw.conn == nil {
 		return fmt.Errorf("(write body) writer is nil")
+	}
+	if rw.state != stateBody {
+		return fmt.Errorf("%w: cannot write body (state=%s)", ErrInvalidWriterState, rw.state)
 	}
 	_, err := io.Copy(rw.conn, b)
 	if err != nil {

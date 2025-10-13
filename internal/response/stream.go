@@ -75,7 +75,6 @@ func (cr *chunkedReader) Read(p []byte) (int, error) {
 		cr.buf.WriteString("0\r\n")
 
 		if cr.trailers.Size() > 0 {
-			fmt.Println(cr.trailers)
 			for key, value := range cr.trailers.All() {
 				trailerLine := fmt.Sprintf("%s: %s\r\n", key, value)
 				cr.buf.WriteString(trailerLine)

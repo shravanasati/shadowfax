@@ -36,7 +36,7 @@ A fast, lightweight HTTP/1.1 server built from scratch in Go. Shadowfax implemen
 - **Graceful shutdown** - Clean server termination with signal handling
 - **Concurrent request handling** - Goroutine-per-request architecture
 - **Query parameter parsing** - Easy access to URL query parameters
-- **Multiple response types** - Text, JSON, HTML, File, and Stream responses
+- **Multiple response types** - Text, JSON, HTML, Template, File, and Stream responses
 
 ## 🚀 Quick Start
 
@@ -252,6 +252,73 @@ app.Get("/", func(r *request.Request) response.Response {
     </html>
     `
     return response.NewHTMLResponse(html)
+})
+```
+
+#### Template Response
+
+Render dynamic HTML templates with data:
+
+```go
+app.Get("/profile/:username", func(r *request.Request) response.Response {
+    username := r.PathParams["username"]
+    
+    template := `<!DOCTYPE html>
+<html>
+<head>
+    <title>{{.Title}}</title>
+</head>
+<body>
+    <h1>Welcome, {{.Username}}!</h1>
+    <p>Last login: {{.LastLogin}}</p>
+    <ul>
+    {{range .Items}}
+        <li>{{.}}</li>
+    {{end}}
+    </ul>
+</body>
+</html>`
+
+    data := map[string]interface{}{
+        "Title":     "User Profile",
+        "Username":  username,
+        "LastLogin": time.Now().Format("Jan 2, 2006"),
+        "Items":     []string{"Dashboard", "Settings", "Logout"},
+    }
+
+    resp, err := response.NewTemplateResponse(template, data)
+    if err != nil {
+        return response.NewTextResponse("Template error").WithStatusCode(500)
+    }
+    
+    return resp
+})
+```
+
+For more complex templates with custom functions:
+
+```go
+import "html/template"
+
+app.Get("/advanced", func(r *request.Request) response.Response {
+    template := `<h1>{{upper .title}}</h1><p>Count: {{add .count 1}}</p>`
+    
+    funcMap := template.FuncMap{
+        "upper": strings.ToUpper,
+        "add": func(a, b int) int { return a + b },
+    }
+    
+    data := map[string]interface{}{
+        "title": "hello world",
+        "count": 42,
+    }
+    
+    resp, err := response.NewTemplateResponseWithFuncs(template, funcMap, data)
+    if err != nil {
+        return response.NewTextResponse("Template error").WithStatusCode(500)
+    }
+    
+    return resp
 })
 ```
 
