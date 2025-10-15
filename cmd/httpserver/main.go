@@ -246,7 +246,7 @@ func main() {
 		if err != nil {
 			return response.NewBaseResponse().WithStatusCode(response.StatusInternalServerError)
 		}
-		return response.NewFileResponse(f).WithHeader("content-type", "video/mp4")
+		return response.NewFileResponse(f)
 	})
 
 	app.Delete("/api/:user", func(r *request.Request) response.Response {

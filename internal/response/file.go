@@ -14,6 +14,7 @@ func NewFileResponse(f *os.File) Response {
 		contentLen := strconv.Itoa(int(st.Size()))
 		etagVal := prepareEtagValue(st.ModTime().String())
 		br.WithHeader("Content-Length", contentLen).
+			WithHeader("Content-Type", detectContentType(f.Name(), f)).
 			WithHeader("ETag", etagVal).
 			WithBody(f)
 	} else {
