@@ -33,23 +33,29 @@ func (s *Server) listen() error {
 
 	for {
 		conn, err := s.listener.Accept()
-		if err != nil && !s.closed.Load() {
-			log.Println("unable to accept connection: " + err.Error())
-			return err
+		if err != nil {
+			if !s.closed.Load() {
+				log.Println("unable to accept connection: " + err.Error())
+				return err
+			}
+			// If server is closed, break out of the loop
+			break
+		}
+
+		// Ensure connection is not nil before proceeding
+		if conn == nil {
+			continue
 		}
 
 		if s.opts.ReadTimeout != 0 {
-			if conn != nil {
-				conn.SetReadDeadline(time.Now().Add(s.opts.ReadTimeout))
-			}
+			conn.SetReadDeadline(time.Now().Add(s.opts.ReadTimeout))
 		}
 		if s.opts.WriteTimeout != 0 {
-			if conn != nil {
-				conn.SetWriteDeadline(time.Now().Add(s.opts.WriteTimeout))
-			}
+			conn.SetWriteDeadline(time.Now().Add(s.opts.WriteTimeout))
 		}
 		go s.handle(conn)
 	}
+	return nil
 }
 
 func (s *Server) handle(conn net.Conn) {
@@ -79,7 +85,9 @@ func (s *Server) handle(conn net.Conn) {
 
 	for {
 		if s.opts.KeepAliveTimeout != 0 {
-			conn.SetDeadline(time.Now().Add(s.opts.KeepAliveTimeout))
+			if conn != nil {
+				conn.SetDeadline(time.Now().Add(s.opts.KeepAliveTimeout))
+			}
 		}
 
 		badReqResponse := response.NewBaseResponse().WithStatusCode(response.StatusBadRequest)
