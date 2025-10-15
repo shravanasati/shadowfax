@@ -60,7 +60,7 @@ func (s *Server) handle(conn net.Conn) {
 
 	// defers are stacked
 
-	defer func ()  {
+	defer func() {
 		if conn != nil && shouldCloseConn {
 			if err := conn.Close(); err != nil {
 				log.Println("unable to close connection", err)
@@ -123,6 +123,16 @@ func (s *Server) handle(conn net.Conn) {
 		resp.WithHeader("date", time.Now().Format(time.RFC1123))
 		if shouldCloseConn {
 			resp.WithHeader("connection", "close")
+		}
+
+		if respEtag, reqEtag := resp.GetHeaders().Get("etag"), req.Headers.Get("if-none-match"); respEtag != "" && reqEtag != "" {
+			// response has an etag header, and
+			// request has a `if-none-match` header, then
+			// check both values, if match, return 304 not modified
+			if respEtag == reqEtag {
+				resp = response.NewBaseResponse().
+					WithStatusCode(response.StatusNotModified)
+			}
 		}
 
 		err = resp.Write(conn)

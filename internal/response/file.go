@@ -5,16 +5,17 @@ import (
 	"strconv"
 )
 
-// todo detect mimetype
-
 // NewFileResponse creates a new file response. It sets the content length
 // header if the size of the file is known, otherwise it uses chunked encoding.
 func NewFileResponse(f *os.File) Response {
 	st, err := f.Stat()
 	br := NewBaseResponse()
 	if err == nil {
-		br.WithHeader("Content-Length", strconv.Itoa(int(st.Size())))
-		br.WithBody(f)
+		contentLen := strconv.Itoa(int(st.Size()))
+		etagVal := prepareEtagValue(st.ModTime().String())
+		br.WithHeader("Content-Length", contentLen).
+			WithHeader("ETag", etagVal).
+			WithBody(f)
 	} else {
 		// fallback to chunked if size unknown
 		br.WithHeader("Transfer-Encoding", "chunked")
