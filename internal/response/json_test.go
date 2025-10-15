@@ -100,7 +100,7 @@ func TestNewJSONResponse(t *testing.T) {
 			// Check body
 			body := resp.GetBody()
 			require.NotNil(t, body)
-			
+
 			bodyBytes, err := io.ReadAll(body)
 			require.NoError(t, err)
 			assert.JSONEq(t, tt.expectedBody, string(bodyBytes))
@@ -116,7 +116,7 @@ func TestJSONResponseWrite(t *testing.T) {
 		"message": "test",
 		"status":  "ok",
 	}
-	
+
 	resp, err := NewJSONResponse(data)
 	require.NoError(t, err)
 
@@ -125,7 +125,7 @@ func TestJSONResponseWrite(t *testing.T) {
 	require.NoError(t, err)
 
 	output := buf.String()
-	
+
 	// Check that it contains HTTP response parts
 	assert.Contains(t, output, "HTTP/1.1 200 OK")
 	assert.Contains(t, output, "content-type: application/json")
@@ -135,7 +135,7 @@ func TestJSONResponseWrite(t *testing.T) {
 
 func TestJSONResponseMethods(t *testing.T) {
 	data := map[string]string{"test": "value"}
-	
+
 	resp, err := NewJSONResponse(data)
 	require.NoError(t, err)
 
@@ -159,10 +159,10 @@ func TestJSONResponseMethods(t *testing.T) {
 
 func TestJSONResponseComplexData(t *testing.T) {
 	type User struct {
-		ID       int      `json:"id"`
-		Name     string   `json:"name"`
-		Email    string   `json:"email"`
-		Tags     []string `json:"tags"`
+		ID       int            `json:"id"`
+		Name     string         `json:"name"`
+		Email    string         `json:"email"`
+		Tags     []string       `json:"tags"`
 		Metadata map[string]any `json:"metadata"`
 	}
 
@@ -213,7 +213,7 @@ func TestJSONResponseComplexData(t *testing.T) {
 
 	assert.Equal(t, float64(2), unmarshaled["total"]) // JSON numbers are float64
 	assert.Equal(t, true, unmarshaled["active"])
-	
+
 	users, ok := unmarshaled["users"].([]any)
 	require.True(t, ok)
 	assert.Len(t, users, 2)

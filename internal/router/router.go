@@ -97,11 +97,11 @@ func (r *Router) chain(h server.Handler) server.Handler {
 // corresponding handlers based on HTTP method and URL path.
 //
 // The routing logic follows this priority order:
-//   1. Exact method and path match
-//   2. For HEAD requests, attempts to use GET handler with body removed
-//   3. Falls back to "ANY" method handler if available
-//   4. Returns 405 Method Not Allowed if path exists for other methods
-//   5. Returns 404 Not Found if no matching route exists
+//  1. Exact method and path match
+//  2. For HEAD requests, attempts to use GET handler with body removed
+//  3. Falls back to "ANY" method handler if available
+//  4. Returns 405 Method Not Allowed if path exists for other methods
+//  5. Returns 404 Not Found if no matching route exists
 //
 // Path parameters are extracted during route matching and added to the request
 // context. The handler applies any configured middleware chain before executing

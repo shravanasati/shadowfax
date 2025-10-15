@@ -334,10 +334,11 @@ app.Get("/download/:filename", func(r *request.Request) response.Response {
     }
     
     return response.NewFileResponse(file).
-        WithHeader("Content-Type", "application/octet-stream").
         WithHeader("Content-Disposition", "attachment; filename="+filename)
 })
 ```
+
+For file responses, the `Content-Type` and `ETag` headers are automatically added to the response.
 
 #### Streaming Response
 

@@ -56,7 +56,7 @@ func TestNewHTMLResponse(t *testing.T) {
 			// Check body
 			body := resp.GetBody()
 			require.NotNil(t, body)
-			
+
 			bodyBytes, err := io.ReadAll(body)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedBody, string(bodyBytes))
@@ -76,7 +76,7 @@ func TestHTMLResponseWrite(t *testing.T) {
 	require.NoError(t, err)
 
 	output := buf.String()
-	
+
 	// Check that it contains HTTP response parts
 	assert.Contains(t, output, "HTTP/1.1 200 OK")
 	assert.Contains(t, output, "content-type: text/html")
@@ -97,7 +97,7 @@ func TestHTMLResponseMethods(t *testing.T) {
 
 	// Test WithHeaders
 	headers := map[string]string{
-		"X-Frame-Options": "DENY",
+		"X-Frame-Options":  "DENY",
 		"X-XSS-Protection": "1; mode=block",
 	}
 	modifiedResp = resp.WithHeaders(headers)
@@ -151,7 +151,7 @@ func TestNewTextResponse(t *testing.T) {
 			// Check body
 			body := resp.GetBody()
 			require.NotNil(t, body)
-			
+
 			bodyBytes, err := io.ReadAll(body)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedBody, string(bodyBytes))
@@ -171,7 +171,7 @@ func TestTextResponseWrite(t *testing.T) {
 	require.NoError(t, err)
 
 	output := buf.String()
-	
+
 	// Check that it contains HTTP response parts
 	assert.Contains(t, output, "HTTP/1.1 200 OK")
 	assert.Contains(t, output, "content-type: text/plain")
@@ -192,7 +192,7 @@ func TestTextResponseMethods(t *testing.T) {
 
 	// Test WithHeaders
 	headers := map[string]string{
-		"Retry-After": "300",
+		"Retry-After":  "300",
 		"X-Request-ID": "12345",
 	}
 	modifiedResp = resp.WithHeaders(headers)

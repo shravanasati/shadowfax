@@ -38,14 +38,14 @@ func TestNewStreamResponse(t *testing.T) {
 
 	t.Run("stream with trailers", func(t *testing.T) {
 		trailerNames := []string{"X-Content-Length", "X-Checksum"}
-		
+
 		streamFunc := func(w io.Writer, setTrailer TrailerSetter) error {
 			content := "Test content for trailers"
 			_, err := w.Write([]byte(content))
 			if err != nil {
 				return err
 			}
-			
+
 			// Set trailers
 			setTrailer("X-Content-Length", fmt.Sprintf("%d", len(content)))
 			setTrailer("X-Checksum", "abc123")
@@ -63,7 +63,7 @@ func TestNewStreamResponse(t *testing.T) {
 
 	t.Run("stream function with error", func(t *testing.T) {
 		expectedError := errors.New("stream error")
-		
+
 		streamFunc := func(w io.Writer, setTrailer TrailerSetter) error {
 			_, err := w.Write([]byte("Partial"))
 			if err != nil {
@@ -101,12 +101,12 @@ func TestStreamResponseWrite(t *testing.T) {
 	require.NoError(t, err)
 
 	output := buf.String()
-	
+
 	// Check that it contains HTTP response parts
 	assert.Contains(t, output, "HTTP/1.1 200 OK")
 	assert.Contains(t, output, "transfer-encoding: chunked")
 	assert.Contains(t, output, "trailer: X-Content-Length")
-	
+
 	// The content should be in chunked format
 	assert.Contains(t, output, "Streaming response test content")
 }
@@ -153,7 +153,7 @@ func TestStreamResponseLargeContent(t *testing.T) {
 	}
 
 	resp := NewStreamResponse(streamFunc, []string{"X-Chunks-Written"})
-	
+
 	// Read all content
 	body := resp.GetBody()
 	content, err := io.ReadAll(body)
@@ -163,7 +163,7 @@ func TestStreamResponseLargeContent(t *testing.T) {
 	contentStr := string(content)
 	assert.Contains(t, contentStr, "Chunk 0:")
 	assert.Contains(t, contentStr, "Chunk 99:")
-	
+
 	// Each chunk is about 111 bytes, so 100 chunks should be around 11100 bytes
 	assert.Greater(t, len(content), 10000)
 }
@@ -184,7 +184,7 @@ func TestStreamResponseReader(t *testing.T) {
 	}
 
 	resp := NewStreamResponse(streamFunc, nil)
-	
+
 	// Test that Reader() returns a proper io.Reader
 	reader := resp.Reader()
 	require.NotNil(t, reader)
@@ -192,7 +192,7 @@ func TestStreamResponseReader(t *testing.T) {
 	// Read content in chunks to test streaming behavior
 	buf := make([]byte, 100)
 	var allContent strings.Builder
-	
+
 	for {
 		n, err := reader.Read(buf)
 		if n > 0 {
@@ -214,15 +214,15 @@ func TestChunkedReader(t *testing.T) {
 	// Test the chunked reader directly
 	testContent := "Hello, World!"
 	reader := strings.NewReader(testContent)
-	
+
 	chunkedReader := &chunkedReader{r: reader, trailers: headers.NewHeaders()}
-	
+
 	// Read all content
 	result, err := io.ReadAll(chunkedReader)
 	require.NoError(t, err)
 
 	resultStr := string(result)
-	
+
 	// Should contain the original content in chunked format
 	assert.Contains(t, resultStr, testContent)
 	// Should contain hex length prefix
