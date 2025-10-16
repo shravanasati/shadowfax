@@ -31,7 +31,8 @@ A fast, lightweight HTTP/1.1 server built from scratch in Go. Shadowfax implemen
 - **Method not allowed detection** - Proper 405 responses for unsupported methods
 
 ### Advanced Features
-- **Middleware support** - Composable request/response middleware chain
+- **Middleware support** - Composable request/response middleware chain with built-in logging and basic auth
+- **CORS support** - Built-in Cross-Origin Resource Sharing with comprehensive configuration options
 - **Panic recovery** - Graceful error handling with customizable recovery
 - **Graceful shutdown** - Clean server termination with signal handling
 - **Concurrent request handling** - Goroutine-per-request architecture
@@ -66,7 +67,7 @@ import (
 
 func main() {
     // Create a new router
-    app := router.NewRouter()
+    app := router.NewRouter(nil)
     
     // Add a simple route
     app.Get("/hello", func(r *request.Request) response.Response {
@@ -102,7 +103,7 @@ func main() {
 #### Basic Routes
 
 ```go
-app := router.NewRouter()
+app := router.NewRouter(nil)
 
 // HTTP methods
 app.Get("/users", getUsersHandler)
@@ -147,7 +148,7 @@ app.Handle("/api/*path", func(r *request.Request) response.Response {
 
 ```go
 // Create a subrouter with middleware
-apiRouter := router.NewRouter()
+apiRouter := router.NewRouter(nil)
 apiRouter.Use(authMiddleware)
 
 apiRouter.Get("/profile", profileHandler)
@@ -384,25 +385,91 @@ app.Get("/custom", func(r *request.Request) response.Response {
 
 ### Middleware
 
-#### Basic Middleware
+Shadowfax provides a flexible middleware system that allows you to intercept and modify requests and responses. The framework includes built-in middleware for common use cases and supports custom middleware development.
+
+#### Built-in Middleware
+
+##### Logging Middleware
+
+The logging middleware provides request logging with optional colored output:
 
 ```go
-func loggingMiddleware(next server.Handler) server.Handler {
-    return func(r *request.Request) response.Response {
-        start := time.Now()
-        resp := next(r)
-        
-        fmt.Printf("%s %s %d - %v\n", 
-            r.Method, r.Target, resp.GetStatusCode(), time.Since(start))
-        
-        return resp
-    }
-}
+package main
 
-app.Use(loggingMiddleware)
+import (
+    "github.com/shravanasati/shadowfax/middleware"
+    "github.com/shravanasati/shadowfax/router"
+)
+
+func main() {
+    app := router.NewRouter(nil)
+    
+    // Basic logging (plain text)
+    app.Use(middleware.LoggingMiddleware)
+    
+    // Or colored logging (requires lipgloss)
+    app.Use(middleware.LoggingMiddlewareColored)
+    
+    app.Get("/test", testHandler)
+}
 ```
 
-#### Authentication Middleware
+The logging middleware outputs request information including:
+- HTTP method (styled and colored in colored version)
+- Request path/target
+- Response status code (color-coded by status range)
+- Request duration
+
+##### Basic Authentication Middleware
+
+The basic auth middleware provides HTTP Basic Authentication support:
+
+```go
+package main
+
+import (
+    "github.com/shravanasati/shadowfax/middleware"
+    "github.com/shravanasati/shadowfax/router"
+)
+
+func main() {
+    app := router.NewRouter(nil)
+    
+    // Configure accounts for basic auth
+    accounts := []middleware.Account{
+        {Username: "admin", Password: "secret123"},
+        {Username: "user", Password: "password"},
+    }
+    
+    // Apply basic auth to specific routes
+    protectedRouter := router.NewRouter(nil)
+    protectedRouter.Use(middleware.BasicAuthMiddleware(accounts))
+    
+    protectedRouter.Get("/admin", adminHandler)
+    protectedRouter.Post("/admin/config", configHandler)
+    
+    // Mount the protected routes
+    app.Handle("/protected", protectedRouter.Handler())
+    
+    // Public routes (no auth required)
+    app.Get("/", publicHandler)
+}
+```
+
+The basic auth middleware:
+- Validates `Authorization: Basic <credentials>` headers
+- Returns 401 Unauthorized for missing or invalid credentials
+- Sets appropriate `WWW-Authenticate` headers for browser prompts
+
+#### Custom Middleware
+
+Create your own middleware by implementing the `Middleware` type:
+
+```go
+type Middleware func(next server.Handler) server.Handler
+```
+
+##### Authentication Middleware
 
 ```go
 func authMiddleware(next server.Handler) server.Handler {
@@ -419,28 +486,242 @@ func authMiddleware(next server.Handler) server.Handler {
 }
 
 // Apply to specific routes
-protectedRouter := router.NewRouter()
+protectedRouter := router.NewRouter(nil)
 protectedRouter.Use(authMiddleware)
 protectedRouter.Get("/profile", profileHandler)
 
 app.Handle("/api", protectedRouter.Handler())
 ```
 
-#### CORS Middleware
+##### Rate Limiting Middleware
 
 ```go
-func corsMiddleware(next server.Handler) server.Handler {
-    return func(r *request.Request) response.Response {
-        resp := next(r)
-        
-        return resp.
-            WithHeader("Access-Control-Allow-Origin", "*").
-            WithHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE").
-            WithHeader("Access-Control-Allow-Headers", "Content-Type, Authorization")
+import "sync"
+
+var rateLimiter = struct {
+    sync.Mutex
+    requests map[string][]time.Time
+}{requests: make(map[string][]time.Time)}
+
+func rateLimitMiddleware(requestsPerMinute int) router.Middleware {
+    return func(next server.Handler) server.Handler {
+        return func(r *request.Request) response.Response {
+            clientIP := r.Headers.Get("X-Forwarded-For")
+            if clientIP == "" {
+                clientIP = "unknown"
+            }
+            
+            rateLimiter.Lock()
+            defer rateLimiter.Unlock()
+            
+            now := time.Now()
+            requests := rateLimiter.requests[clientIP]
+            
+            // Filter requests from the last minute
+            validRequests := []time.Time{}
+            for _, reqTime := range requests {
+                if now.Sub(reqTime) < time.Minute {
+                    validRequests = append(validRequests, reqTime)
+                }
+            }
+            
+            if len(validRequests) >= requestsPerMinute {
+                return response.NewTextResponse("Rate limit exceeded").
+                    WithStatusCode(response.StatusTooManyRequests)
+            }
+            
+            rateLimiter.requests[clientIP] = append(validRequests, now)
+            
+            return next(r)
+        }
     }
 }
 
-app.Use(corsMiddleware)
+app.Use(rateLimitMiddleware(100)) // 100 requests per minute
+```
+
+##### Request ID Middleware
+
+```go
+import "github.com/google/uuid"
+
+func requestIDMiddleware(next server.Handler) server.Handler {
+    return func(r *request.Request) response.Response {
+        requestID := r.Headers.Get("X-Request-ID")
+        if requestID == "" {
+            requestID = uuid.New().String()
+        }
+        
+        resp := next(r)
+        return resp.WithHeader("X-Request-ID", requestID)
+    }
+}
+
+app.Use(requestIDMiddleware)
+```
+
+#### Middleware Ordering
+
+Middleware is executed in the order it's added. The last middleware added will be the first to execute:
+
+```go
+app.Use(requestIDMiddleware)    // Executes first
+app.Use(loggingMiddleware)      // Executes second
+app.Use(authMiddleware)         // Executes third
+
+// Execution order: requestID → logging → auth → handler → auth → logging → requestID
+```
+
+### CORS (Cross-Origin Resource Sharing)
+
+Shadowfax provides built-in CORS support through router configuration. CORS is essential when building APIs that need to be accessed from web browsers with different origins.
+
+#### Basic CORS Setup
+
+Enable CORS with default settings (allows all origins):
+
+```go
+package main
+
+import (
+    "github.com/shravanasati/shadowfax/router"
+)
+
+func main() {
+    // Enable CORS with default configuration
+    app := router.NewRouter(&router.RouterOptions{
+        EnableCors: true,
+    })
+    
+    app.Get("/api/data", dataHandler)
+    app.Post("/api/users", createUserHandler)
+}
+```
+
+#### Custom CORS Configuration
+
+Configure CORS with specific options for production use:
+
+```go
+app := router.NewRouter(&router.RouterOptions{
+    EnableCors: true,
+    CorsOptions: router.CorsOptions{
+        // Allowed origins (specific domains)
+        AllowedOrigins: []string{
+            "https://myapp.com",
+            "https://www.myapp.com",
+            "http://localhost:3000", // For development
+        },
+        
+        // Allowed HTTP methods
+        AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+        
+        // Allowed headers that can be used during the actual request
+        AllowedHeaders: []string{
+            "Accept",
+            "Authorization", 
+            "Content-Type",
+            "X-CSRF-Token",
+            "X-API-Key",
+        },
+        
+        // Headers that are safe to expose to the API
+        ExposedHeaders: []string{
+            "X-Request-ID",
+            "X-Response-Time",
+        },
+        
+        // Allow cookies and authorization headers
+        AllowCredentials: true,
+        
+        // How long browsers can cache preflight results (in seconds)
+        MaxAge: 86400, // 24 hours
+        
+        // Whether OPTIONS requests should be passed to the next handler
+        OptionsPassthrough: false,
+    },
+})
+```
+
+#### CORS Configuration Options
+
+| Option | Type | Description | Default |
+|--------|------|-------------|---------|
+| `AllowedOrigins` | `[]string` | List of allowed origins. Use `"*"` for all origins | `["*"]` |
+| `AllowOriginFunc` | `func(*request.Request, string) bool` | Custom function to validate origins | `nil` |
+| `AllowedMethods` | `[]string` | Allowed HTTP methods | `["HEAD", "GET", "POST"]` |
+| `AllowedHeaders` | `[]string` | Allowed request headers | `["Origin", "Accept", "Content-Type"]` |
+| `ExposedHeaders` | `[]string` | Headers exposed to the client | `[]` |
+| `AllowCredentials` | `bool` | Allow cookies and authorization headers | `false` |
+| `MaxAge` | `int` | Preflight cache duration in seconds | `0` |
+| `OptionsPassthrough` | `bool` | Let OPTIONS requests pass to handlers | `false` |
+
+#### Advanced CORS Examples
+
+##### Wildcard Origins
+
+Support multiple domains with wildcards:
+
+```go
+CorsOptions: router.CorsOptions{
+    AllowedOrigins: []string{
+        "https://*.example.com",    // All subdomains of example.com
+        "http://localhost:*",       // Any localhost port
+        "https://app.mydomain.com", // Specific domain
+    },
+}
+```
+
+##### Dynamic Origin Validation
+
+Use a custom function for complex origin validation:
+
+```go
+CorsOptions: router.CorsOptions{
+    AllowOriginFunc: func(r *request.Request, origin string) bool {
+        // Allow origins based on API key or other criteria
+        apiKey := r.Headers.Get("X-API-Key")
+        
+        // Check if origin is in allowed list for this API key
+        return validateOriginForAPIKey(origin, apiKey)
+    },
+    AllowCredentials: true,
+}
+```
+
+##### Development vs Production
+
+Set up different CORS configurations based on environment:
+
+```go
+func corsConfig() router.CorsOptions {
+    if os.Getenv("ENV") == "production" {
+        return router.CorsOptions{
+            AllowedOrigins: []string{
+                "https://myapp.com",
+                "https://www.myapp.com",
+            },
+            AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
+            AllowedHeaders: []string{"Authorization", "Content-Type"},
+            AllowCredentials: true,
+            MaxAge: 86400,
+        }
+    }
+    
+    // Development configuration (more permissive)
+    return router.CorsOptions{
+        AllowedOrigins: []string{"*"},
+        AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
+        AllowedHeaders: []string{"*"},
+        AllowCredentials: false,
+        MaxAge: 3600,
+    }
+}
+
+app := router.NewRouter(&router.RouterOptions{
+    EnableCors:  true,
+    CorsOptions: corsConfig(),
+})
 ```
 
 ### Error Handling
@@ -516,10 +797,17 @@ import (
 )
 
 func main() {
-    app := router.NewRouter()
+    // Create router with CORS enabled
+    app := router.NewRouter(&router.RouterOptions{
+        EnableCors: true,
+        CorsOptions: router.CorsOptions{
+            AllowedOrigins: []string{"*"},
+            AllowCredentials: false,
+        },
+    })
     
     // Global middleware
-    app.Use(loggingMiddleware, corsMiddleware)
+    app.Use(loggingMiddleware)
     
     // Static routes
     app.Get("/", homeHandler)
@@ -538,7 +826,7 @@ func main() {
     app.Get("/stream/:seconds", streamHandler)
     
     // Protected routes
-    adminRouter := router.NewRouter()
+    adminRouter := router.NewRouter(nil)
     adminRouter.Use(authMiddleware)
     adminRouter.Get("/stats", adminStatsHandler)
     adminRouter.Post("/config", adminConfigHandler)

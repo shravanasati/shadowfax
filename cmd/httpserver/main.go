@@ -45,16 +45,17 @@ func main() {
 		EnableCors: true,
 		CorsOptions: router.CorsOptions{
 			AllowedOrigins: []string{"*"},
-			AllowedMethods: []string{"GET"},
+			AllowedMethods: []string{"GET", "PUT"},
+			AllowedHeaders: []string{"*"},
 		},
 	})
 	app.Use(middleware.LoggingMiddlewareColored, headerAdder)
-	app.Use(middleware.BasicAuthMiddleware(
-		[]middleware.Account{
-			{Username: "hi", Password: "hello"},
-			{Username: "admin", Password: "password"},
-		},
-	))
+	// app.Use(middleware.BasicAuthMiddleware(
+	// 	[]middleware.Account{
+	// 		{Username: "hi", Password: "hello"},
+	// 		{Username: "admin", Password: "password"},
+	// 	},
+	// ))
 
 	subRouter := router.NewRouter(nil)
 	subRouter.Use(userOnly)
