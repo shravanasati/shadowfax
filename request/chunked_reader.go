@@ -6,7 +6,7 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/shravanasati/shadowfax/internal/headers"
+	"github.com/shravanasati/shadowfax/headers"
 )
 
 type chunkedReader struct {

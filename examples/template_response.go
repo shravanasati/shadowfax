@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/shravanasati/shadowfax/internal/response"
+	"github.com/shravanasati/shadowfax/response"
 )
 
 func main() {

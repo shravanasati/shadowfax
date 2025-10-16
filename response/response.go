@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/shravanasati/shadowfax/internal/headers"
+	"github.com/shravanasati/shadowfax/headers"
 )
 
 // Response is the interface that all responses must implement.

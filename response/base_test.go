@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shravanasati/shadowfax/internal/headers"
+	"github.com/shravanasati/shadowfax/headers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

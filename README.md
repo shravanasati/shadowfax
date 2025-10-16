@@ -58,10 +58,10 @@ import (
     "os/signal"
     "syscall"
     
-    "github.com/shravanasati/shadowfax/internal/router"
-    "github.com/shravanasati/shadowfax/internal/server"
-    "github.com/shravanasati/shadowfax/internal/request"
-    "github.com/shravanasati/shadowfax/internal/response"
+    "github.com/shravanasati/shadowfax/router"
+    "github.com/shravanasati/shadowfax/server"
+    "github.com/shravanasati/shadowfax/request"
+    "github.com/shravanasati/shadowfax/response"
 )
 
 func main() {
@@ -509,10 +509,10 @@ import (
     "syscall"
     "time"
     
-    "github.com/shravanasati/shadowfax/internal/request"
-    "github.com/shravanasati/shadowfax/internal/response" 
-    "github.com/shravanasati/shadowfax/internal/router"
-    "github.com/shravanasati/shadowfax/internal/server"
+    "github.com/shravanasati/shadowfax/request"
+    "github.com/shravanasati/shadowfax/response" 
+    "github.com/shravanasati/shadowfax/router"
+    "github.com/shravanasati/shadowfax/server"
 )
 
 func main() {

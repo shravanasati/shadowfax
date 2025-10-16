@@ -3,7 +3,7 @@ package response
 import (
 	"io"
 
-	"github.com/shravanasati/shadowfax/internal/headers"
+	"github.com/shravanasati/shadowfax/headers"
 )
 
 // BaseResponse is a basic implementation of the Response interface.

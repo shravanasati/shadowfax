@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/shravanasati/shadowfax/internal/headers"
+	"github.com/shravanasati/shadowfax/headers"
 )
 
 // TrailerSetter is a function that sets a trailer header.

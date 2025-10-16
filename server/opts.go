@@ -5,7 +5,7 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/shravanasati/shadowfax/internal/response"
+	"github.com/shravanasati/shadowfax/response"
 )
 
 // Server configuration options.

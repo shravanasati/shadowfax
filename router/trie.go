@@ -5,7 +5,7 @@ package router
 import (
 	"strings"
 
-	"github.com/shravanasati/shadowfax/internal/server"
+	"github.com/shravanasati/shadowfax/server"
 )
 
 type TrieNode struct {

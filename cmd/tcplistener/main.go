@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/shravanasati/shadowfax/internal/request"
+	"github.com/shravanasati/shadowfax/request"
 )
 
 func main() {

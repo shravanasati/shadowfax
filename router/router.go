@@ -1,9 +1,9 @@
 package router
 
 import (
-	"github.com/shravanasati/shadowfax/internal/request"
-	"github.com/shravanasati/shadowfax/internal/response"
-	"github.com/shravanasati/shadowfax/internal/server"
+	"github.com/shravanasati/shadowfax/request"
+	"github.com/shravanasati/shadowfax/response"
+	"github.com/shravanasati/shadowfax/server"
 )
 
 var defaultNotFoundHandler server.Handler = func(r *request.Request) response.Response {

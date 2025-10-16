@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/shravanasati/shadowfax/internal/request"
-	"github.com/shravanasati/shadowfax/internal/response"
+	"github.com/shravanasati/shadowfax/request"
+	"github.com/shravanasati/shadowfax/response"
 )
 
 type Server struct {
