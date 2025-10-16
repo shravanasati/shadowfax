@@ -74,6 +74,17 @@ func (h *Headers) Remove(key string) {
 	delete(h.headers, normalizeKey(key))
 }
 
+// Set sets a header value, as opposed to Add which appends the value if it alredy exists.
+func (h *Headers) Set(key, value string) {
+	if !isValidFieldName(key) || !isValidFieldValue([]byte(value)) {
+		// drop invalid headers to prevent response splitting
+		return
+	}
+
+	key = normalizeKey(key)
+	h.headers[key] = value
+}
+
 // All returns an iterator over all headers.
 func (h *Headers) All() iter.Seq2[string, string] {
 	return maps.All(h.headers)
