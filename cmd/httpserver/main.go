@@ -41,10 +41,16 @@ func userOnly(next server.Handler) server.Handler {
 }
 
 func main() {
-	app := router.NewRouter()
+	app := router.NewRouter(&router.RouterOptions{
+		EnableCors: true,
+		CorsOptions: router.CorsOptions{
+			AllowedOrigins: []string{"*"},
+			AllowedMethods: []string{"GET"},
+		},
+	})
 	app.Use(middleware.LoggingMiddlewareColored, headerAdder)
 
-	subRouter := router.NewRouter()
+	subRouter := router.NewRouter(nil)
 	subRouter.Use(userOnly)
 	subRouter.Get("/*", func(r *request.Request) response.Response {
 		return response.NewTextResponse("sub")

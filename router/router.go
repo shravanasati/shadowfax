@@ -1,6 +1,8 @@
 package router
 
 import (
+	"maps"
+
 	"github.com/shravanasati/shadowfax/request"
 	"github.com/shravanasati/shadowfax/response"
 	"github.com/shravanasati/shadowfax/server"
@@ -19,10 +21,12 @@ type Router struct {
 	trees           map[string]*TrieNode
 	notFoundHandler server.Handler
 	middlewares     []Middleware
+	corsEnabled     bool
+	cors            *corsHandler
 }
 
 // Creates a new router.
-func NewRouter() *Router {
+func NewRouter(opts *RouterOptions) *Router {
 	methodTreeMap := map[string]*TrieNode{
 		"GET":     NewTrieNode(),
 		"POST":    NewTrieNode(),
@@ -33,7 +37,19 @@ func NewRouter() *Router {
 		"HEAD":    NewTrieNode(),
 		"ANY":     NewTrieNode(),
 	}
-	return &Router{trees: methodTreeMap, notFoundHandler: defaultNotFoundHandler, middlewares: []Middleware{}}
+
+	router := &Router{
+		trees:           methodTreeMap,
+		notFoundHandler: defaultNotFoundHandler,
+		middlewares:     []Middleware{},
+	}
+
+	if opts != nil && opts.EnableCors {
+		router.corsEnabled = true
+		router.cors = newCorsHandler(opts.CorsOptions)
+	}
+
+	return router
 }
 
 // Get registers a new GET route.
@@ -111,34 +127,73 @@ func (router *Router) Handler() server.Handler {
 		reqMethod := r.Method
 		path := r.Target
 
-		// try exact method first
+		if router.corsEnabled && reqMethod == "OPTIONS" {
+			origin := r.Headers.Get("Origin")
+			hasOriginHeader := len(origin) != 0
+
+			if r.Headers.Get("Access-Control-Request-Method") != "" && hasOriginHeader {
+				headers := router.cors.handlePreflight(r)
+				resp := response.NewBaseResponse()
+
+				if router.cors.optionPassthrough {
+					if handler, params := router.trees["OPTIONS"].Match(path); handler != nil {
+						r.PathParams = params
+						resp = handler(r)
+					} else if handler, params := router.trees["ANY"].Match(path); handler != nil {
+						r.PathParams = params
+						resp = handler(r)
+					} else {
+						resp.WithStatusCode(response.StatusNoContent)
+					}
+				} else {
+					resp.WithStatusCode(response.StatusNoContent)
+				}
+
+				respHeaders := resp.GetHeaders()
+				for k, v := range maps.Collect(headers.All()) {
+					respHeaders.Set(k, v)
+				}
+				return resp
+			}
+		}
+
 		handler, params := router.trees[reqMethod].Match(path)
 		if handler != nil {
 			r.PathParams = params
-			return handler(r)
+			resp := handler(r)
+			if router.corsEnabled {
+				corsHeaders := router.cors.handleActualRequest(r)
+				resp.WithHeaders(maps.Collect(corsHeaders.All()))
+			}
+			return resp
 		}
 
-		// auto handle head using get, if the specialised head handler doesnt exist
 		if reqMethod == "HEAD" {
 			getHandler, params := router.trees["GET"].Match(path)
 			if getHandler != nil {
 				r.PathParams = params
 				resp := getHandler(r)
-				return resp.WithBody(nil) // remove body
+				if router.corsEnabled {
+					corsHeaders := router.cors.handleActualRequest(r)
+					resp.WithHeaders(maps.Collect(corsHeaders.All()))
+				}
+				return resp.WithBody(nil)
 			}
 		}
 
-		// general method handler
 		handler, params = router.trees["ANY"].Match(path)
 		if handler != nil {
 			r.PathParams = params
-			return handler(r)
+			resp := handler(r)
+			if router.corsEnabled {
+				corsHeaders := router.cors.handleActualRequest(r)
+				resp.WithHeaders(maps.Collect(corsHeaders.All()))
+			}
+			return resp
 		}
 
-		// check for method not allowed
 		for method, tree := range router.trees {
 			if method == reqMethod || method == "ANY" {
-				// skip running trie search against already tried methods
 				continue
 			}
 			handler, _ := tree.Match(path)
@@ -149,7 +204,6 @@ func (router *Router) Handler() server.Handler {
 			}
 		}
 
-		// 404 not found
 		return router.notFoundHandler(r)
 	}
 

@@ -21,10 +21,13 @@ type Response interface {
 
 	// WithStatusCode sets the status code of the response.
 	WithStatusCode(StatusCode) Response
-	// WithHeader adds a header to the response.
+
+	// WithHeader adds a header to the response. It calls the Add method on the underlying headers, which appends the header values. If you want to set a header (only a single value), use GetHeaders().Set method.
 	WithHeader(key, value string) Response
-	// WithHeaders adds multiple headers to the response.
+
+	// WithHeaders adds multiple headers to the response. It calls the Add method on the underlying headers, which appends the header values. If you want to set a header (only a single value), use GetHeaders().Set method.
 	WithHeaders(map[string]string) Response
+
 	// WithBody sets the body of the response.
 	WithBody(io.Reader) Response
 }

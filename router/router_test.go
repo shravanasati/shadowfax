@@ -25,7 +25,7 @@ func parseResponse(w *httptest.ResponseRecorder) (*http.Response, string, error)
 }
 
 func TestRouter(t *testing.T) {
-	router := NewRouter()
+	router := NewRouter(nil)
 
 	router.Get("/home", func(r *request.Request) response.Response {
 		return response.NewTextResponse("get home")
@@ -106,7 +106,7 @@ func TestRouter(t *testing.T) {
 }
 
 func TestRouter_CustomNotFoundHandler(t *testing.T) {
-	router := NewRouter()
+	router := NewRouter(nil)
 
 	// Set a custom not-found handler
 	router.NotFound(func(r *request.Request) response.Response {

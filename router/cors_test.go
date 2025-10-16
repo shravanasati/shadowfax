@@ -1,4 +1,4 @@
-package cors
+package router
 
 import (
 	"bytes"
@@ -415,8 +415,6 @@ func TestSpec(t *testing.T) {
 	for i := range cases {
 		tc := cases[i]
 		t.Run(tc.name, func(t *testing.T) {
-			s := NewCorsMiddleware(tc.CorsOptions)
-
 			httpReq, _ := http.NewRequest(tc.method, "http://example.com/foo", nil)
 			for name, value := range tc.reqHeaders {
 				httpReq.Header.Add(name, value)
@@ -425,7 +423,19 @@ func TestSpec(t *testing.T) {
 			req := convertRequest(httpReq)
 
 			t.Run("Handler", func(t *testing.T) {
-				resp := s.Handler(testHandler)(req)
+				router := NewRouter(&RouterOptions{
+					EnableCors:  true,
+					CorsOptions: tc.CorsOptions,
+				})
+				router.Get("/foo", testHandler)
+				router.Post("/foo", testHandler)
+				router.Put("/foo", testHandler)
+				router.Delete("/foo", testHandler)
+				router.Options("/foo", testHandler)
+				router.Handle("/foo", testHandler)
+
+				handler := router.Handler()
+				resp := handler(req)
 				rec := convertResponse(resp)
 
 				assertHeaders(t, rec.Header(), tc.resHeaders)
@@ -435,7 +445,7 @@ func TestSpec(t *testing.T) {
 }
 
 func TestDefault(t *testing.T) {
-	s := NewCorsMiddleware(CorsOptions{})
+	s := newCorsHandler(CorsOptions{})
 	if !s.allowedOriginsAll {
 		t.Error("c.allowedOriginsAll should be true when Default")
 	}
@@ -448,7 +458,7 @@ func TestDefault(t *testing.T) {
 }
 
 func TestHandlePreflightInvalidOriginAbortion(t *testing.T) {
-	s := NewCorsMiddleware(CorsOptions{
+	s := newCorsHandler(CorsOptions{
 		AllowedOrigins: []string{"http://foo.com"},
 	})
 	httpReq, _ := http.NewRequest("OPTIONS", "http://example.com/foo", nil)
@@ -466,7 +476,7 @@ func TestHandlePreflightInvalidOriginAbortion(t *testing.T) {
 }
 
 func TestHandlePreflightNoCorsOptionsAbortion(t *testing.T) {
-	s := NewCorsMiddleware(CorsOptions{
+	s := newCorsHandler(CorsOptions{
 		// Intentionally left blank.
 	})
 	req, _ := http.NewRequest("GET", "http://example.com/foo", nil)
@@ -479,7 +489,7 @@ func TestHandlePreflightNoCorsOptionsAbortion(t *testing.T) {
 }
 
 func TestHandleActualRequestInvalidOriginAbortion(t *testing.T) {
-	s := NewCorsMiddleware(CorsOptions{
+	s := newCorsHandler(CorsOptions{
 		AllowedOrigins: []string{"http://foo.com"},
 	})
 	req, _ := http.NewRequest("GET", "http://example.com/foo", nil)
@@ -495,7 +505,7 @@ func TestHandleActualRequestInvalidOriginAbortion(t *testing.T) {
 }
 
 func TestHandleActualRequestInvalidMethodAbortion(t *testing.T) {
-	s := NewCorsMiddleware(CorsOptions{
+	s := newCorsHandler(CorsOptions{
 		AllowedMethods:   []string{"POST"},
 		AllowCredentials: true,
 	})
@@ -512,7 +522,7 @@ func TestHandleActualRequestInvalidMethodAbortion(t *testing.T) {
 }
 
 func TestIsMethodAllowedReturnsFalseWithNoMethods(t *testing.T) {
-	s := NewCorsMiddleware(CorsOptions{
+	s := newCorsHandler(CorsOptions{
 		// Intentionally left blank.
 	})
 	s.allowedMethods = []string{}
@@ -522,7 +532,7 @@ func TestIsMethodAllowedReturnsFalseWithNoMethods(t *testing.T) {
 }
 
 func TestIsMethodAllowedReturnsTrueWithCorsOptions(t *testing.T) {
-	s := NewCorsMiddleware(CorsOptions{
+	s := newCorsHandler(CorsOptions{
 		// Intentionally left blank.
 	})
 	if !s.isMethodAllowed("OPTIONS") {
