@@ -249,7 +249,7 @@ func main() {
 	})
 
 	app.Get("/redirect", func(r *request.Request) response.Response {
-		return response.NewBaseResponse().WithStatusCode(response.StatusMovedPermanently)
+		return response.NewRedirectResponse("https://google.com")
 	})
 
 	app.Handle("/api/*path", func(r *request.Request) response.Response {
