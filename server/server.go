@@ -1,6 +1,8 @@
 package server
 
 import (
+	_ "embed"
+	"fmt"
 	"log"
 	"net"
 	"strings"
@@ -10,6 +12,9 @@ import (
 	"github.com/shravanasati/shadowfax/request"
 	"github.com/shravanasati/shadowfax/response"
 )
+
+//go:embed banner.txt
+var banner string
 
 type Server struct {
 	opts     ServerOpts
@@ -181,6 +186,7 @@ func newServer(opts ServerOpts, handler Handler) *Server {
 
 // Starts the HTTP server with the given options and handler.
 func Serve(opts ServerOpts, handler Handler) (*Server, error) {
+	fmt.Println(banner)
 	s := newServer(opts, handler)
 
 	errCh := make(chan error, 1)

@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/shravanasati/shadowfax/middleware"
 	"github.com/shravanasati/shadowfax/request"
 	"github.com/shravanasati/shadowfax/response"
 	"github.com/shravanasati/shadowfax/router"
@@ -21,15 +22,6 @@ import (
 )
 
 const port = 42069
-
-func loggingMiddleware(next server.Handler) server.Handler {
-	return server.Handler(func(r *request.Request) response.Response {
-		now := time.Now()
-		resp := next(r)
-		fmt.Printf("%s %s %d in %s\n", r.Method, r.Target, resp.GetStatusCode(), time.Since(now))
-		return resp
-	})
-}
 
 func headerAdder(next server.Handler) server.Handler {
 	return func(r *request.Request) response.Response {
@@ -50,7 +42,7 @@ func userOnly(next server.Handler) server.Handler {
 
 func main() {
 	app := router.NewRouter()
-	app.Use(loggingMiddleware, headerAdder)
+	app.Use(middleware.LoggingMiddlewareColored, headerAdder)
 
 	subRouter := router.NewRouter()
 	subRouter.Use(userOnly)
@@ -254,6 +246,10 @@ func main() {
 		force := r.Query["force"]
 		return response.
 			NewTextResponse(fmt.Sprintf("user %s deleted with force=%s", user, force))
+	})
+
+	app.Get("/redirect", func(r *request.Request) response.Response {
+		return response.NewBaseResponse().WithStatusCode(response.StatusMovedPermanently)
 	})
 
 	app.Handle("/api/*path", func(r *request.Request) response.Response {
