@@ -49,6 +49,12 @@ func main() {
 		},
 	})
 	app.Use(middleware.LoggingMiddlewareColored, headerAdder)
+	app.Use(middleware.BasicAuthMiddleware(
+		[]middleware.Account{
+			{Username: "hi", Password: "hello"},
+			{Username: "admin", Password: "password"},
+		},
+	))
 
 	subRouter := router.NewRouter(nil)
 	subRouter.Use(userOnly)
