@@ -11,6 +11,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type closingReader struct {
+	io.Reader
+	closed bool
+}
+
+func (c *closingReader) Close() error {
+	c.closed = true
+	return nil
+}
+
 func TestNewBaseResponse(t *testing.T) {
 	resp := NewBaseResponse()
 	require.NotNil(t, resp)
@@ -199,6 +209,22 @@ func TestResponseWriterBody(t *testing.T) {
 
 	output := buf.String()
 	assert.Contains(t, output, bodyContent)
+}
+
+func TestResponseWriterBodyClosesCloser(t *testing.T) {
+	var buf strings.Builder
+	rw := NewResponseWriter(&buf)
+	require.NoError(t, rw.WriteStatusLine(200))
+
+	h := headers.NewHeaders()
+	require.NoError(t, rw.WriteHeaders(h))
+
+	body := &closingReader{Reader: strings.NewReader("close me")}
+
+	err := rw.WriteBody(body)
+	require.NoError(t, err)
+	assert.True(t, body.closed)
+	assert.Contains(t, buf.String(), "close me")
 }
 
 func TestResponseWriterStateMachine(t *testing.T) {

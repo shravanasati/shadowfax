@@ -269,6 +269,8 @@ func main() {
 		return response.NewTextResponse("all good, frfr\n").WithStatusCode(response.StatusOK)
 	})
 
+	app.Handle("/public/*file", middleware.NewStaticHandler("file", middleware.NewDirFS("./public")))
+
 	server, err := server.Serve(server.ServerOpts{
 		Address: ":42069",
 		// Recovery: func(r any) response.Response {

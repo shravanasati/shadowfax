@@ -81,6 +81,12 @@ func (rw *ResponseWriter) WriteBody(b io.Reader) error {
 		return fmt.Errorf("%w: cannot write body (state=%s)", ErrInvalidWriterState, rw.state)
 	}
 	_, err := io.Copy(rw.conn, b)
+	if closer, ok := b.(io.Closer); ok {
+		closeErr := closer.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}
 	if err != nil {
 		return err
 	}

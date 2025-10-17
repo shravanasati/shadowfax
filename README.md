@@ -461,6 +461,199 @@ The basic auth middleware:
 - Returns 401 Unauthorized for missing or invalid credentials
 - Sets appropriate `WWW-Authenticate` headers for browser prompts
 
+##### Static File Serving Handler
+
+The static handler enables efficient serving of static files from your filesystem or embedded resources. It can be used directly as a route handler:
+
+```go
+package main
+
+import (
+    "github.com/shravanasati/shadowfax/middleware"
+    "github.com/shravanasati/shadowfax/router"
+)
+
+func main() {
+    app := router.NewRouter(nil)
+    
+    // Serve files from disk
+    diskFS := middleware.NewDirFS("./public")
+    staticHandler := middleware.NewStaticHandler("filepath", diskFS)
+    app.Handle("/static/*filepath", staticHandler)
+    
+    app.Get("/", homeHandler)
+}
+```
+
+**Serving Embedded Files:**
+
+```go
+//go:embed public/*
+var publicFiles embed.FS
+
+func main() {
+    app := router.NewRouter(nil)
+    
+    // Serve embedded files
+    embedFS := middleware.NewEmbedFS(publicFiles)
+    staticHandler := middleware.NewStaticHandler("filepath", embedFS)
+    
+    app.Handle("/static/*filepath", staticHandler)
+}
+```
+
+**Static Handler Features:**
+- 🔒 **Path traversal protection** - Prevents `../../../etc/passwd` attacks
+- 📁 **Directory support** - Automatically serves `index.html` for directories
+- ⚡ **Efficient serving** - Zero-copy file transmission with proper headers
+- 🎯 **Content-Type detection** - Automatic MIME type detection
+- 📊 **ETag support** - Automatic cache validation headers
+- 🔗 **Multiple sources** - Disk, embedded files, or custom implementations
+
+**Complete Example:**
+
+```go
+import (
+    "embed"
+    "os"
+    "github.com/shravanasati/shadowfax/middleware"
+    "github.com/shravanasati/shadowfax/router"
+)
+
+//go:embed assets/*
+var embeddedAssets embed.FS
+
+func main() {
+    app := router.NewRouter(nil)
+    
+    var staticFS middleware.NamedReadSeekerFS
+    
+    // Use embedded files in production, disk files in development
+    if os.Getenv("ENV") == "production" {
+        staticFS = middleware.NewEmbedFS(embeddedAssets)
+    } else {
+        staticFS = middleware.NewDirFS("./assets")
+    }
+    
+    // Create static handler for serving files
+    staticHandler := middleware.NewStaticHandler("path", staticFS)
+    
+    // Mount the static file handler
+    app.Handle("/assets/*path", staticHandler)
+    
+    // Dynamic handlers
+    app.Get("/api/data", apiHandler)
+    
+    // 404 handler for missing files/routes
+    app.NotFound(notFoundHandler)
+}
+```
+
+##### CORF (Cross-Origin Request Forgery) Middleware
+
+The CORF middleware provides protection against cross-origin request forgery attacks by validating the origin of requests:
+
+```go
+package main
+
+import (
+    "github.com/shravanasati/shadowfax/middleware"
+    "github.com/shravanasati/shadowfax/router"
+)
+
+func main() {
+    app := router.NewRouter(nil)
+    
+    // Create CORF protection
+    corf := middleware.NewCrossOriginProtection()
+    
+    // Add trusted origins that are allowed to make requests
+    corf.AddTrustedOrigin("https://myapp.com")
+    corf.AddTrustedOrigin("https://www.myapp.com")
+    corf.AddTrustedOrigin("http://localhost:3000") // Development
+    
+    // Apply CORF protection to sensitive endpoints
+    apiRouter := router.NewRouter(nil)
+    apiRouter.Use(corf.Handler())
+    
+    apiRouter.Post("/transfer", transferHandler)
+    apiRouter.Delete("/account", deleteAccountHandler)
+    apiRouter.Patch("/settings", settingsHandler)
+    
+    app.Handle("/api", apiRouter.Handler())
+    
+    // Public endpoints without CORF
+    app.Get("/", publicHandler)
+}
+```
+
+**CORF Protection Features:**
+- 🛡️ **Origin validation** - Checks `Origin` and `Sec-Fetch-Site` headers
+- ✅ **Trusted origin bypass** - Allow specific origins to bypass some checks
+- 📋 **Method validation** - Protects against dangerous HTTP methods (POST, PUT, DELETE, PATCH)
+- 🔒 **Secure defaults** - Blocks cross-site requests with strict policies
+- 🎯 **Flexible configuration** - Set custom denial handlers and trusted origins
+
+**Advanced Configuration:**
+
+```go
+corf := middleware.NewCrossOriginProtection()
+
+// Add trusted origins with validation
+origins := []string{
+    "https://myapp.com",
+    "https://api.myapp.com",
+    "http://localhost:8080", // Development
+}
+
+for _, origin := range origins {
+    if err := corf.AddTrustedOrigin(origin); err != nil {
+        log.Printf("Invalid origin: %v", err)
+        continue
+    }
+}
+
+// Set a custom denial handler
+corf.SetDenyHandler(func(_ *request.Request) response.Response {
+    return response.NewJSONResponse(map[string]string{
+        "error": "Cross-origin request rejected",
+    }).WithStatusCode(response.StatusForbidden)
+})
+
+// Apply to routes
+app.Use(corf.Handler())
+```
+
+**How CORF Works:**
+
+The CORF middleware validates requests using multiple checks:
+
+1. **Same-Origin Detection** - Checks `Sec-Fetch-Site` header
+   - `same-origin` - Always allowed (same site)
+   - `none` - Usually allowed (top-level navigation)
+   - `cross-site` - Blocked by default (needs trusted origin)
+
+2. **Trusted Origin Bypass** - If origin is in trusted list, allows cross-site requests
+
+3. **Secure Method Validation** - Restricts dangerous methods on cross-origin requests
+
+```go
+// Example: Protecting a form submission endpoint
+app.Post("/api/transfer-funds", func(r *request.Request) response.Response {
+    // This will be protected by CORF middleware
+    // Cross-site requests without trusted origin will be blocked
+    
+    amount := r.Query.Get("amount")
+    recipient := r.Query.Get("recipient")
+    
+    // Process transfer...
+    
+    return response.NewJSONResponse(map[string]string{
+        "status": "success",
+    })
+})
+```
+
 #### Custom Middleware
 
 Create your own middleware by implementing the `Middleware` type:
