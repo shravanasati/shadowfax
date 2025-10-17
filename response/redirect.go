@@ -8,9 +8,9 @@ type RedirectResponse struct {
 // NewRedirectResponse creates a new Redirect response. Uses status code 302 (Found) by default.
 func NewRedirectResponse(location string) Response {
 	br := NewBaseResponse().
-			WithStatusCode(StatusFound).
-			WithHeader("content-length", "0").
-			WithHeader("location", location)
+		WithStatusCode(StatusFound).
+		WithHeader("content-length", "0").
+		WithHeader("location", location)
 
 	return &RedirectResponse{Response: br}
 }

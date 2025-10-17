@@ -218,8 +218,8 @@ func (c *corsHandler) isOriginAllowed(r *request.Request, origin string) bool {
 	}
 	origin = strings.ToLower(origin)
 	if slices.Contains(c.allowedOrigins, origin) {
-			return true
-		}
+		return true
+	}
 	for _, w := range c.allowedWOrigins {
 		if w.match(origin) {
 			return true
