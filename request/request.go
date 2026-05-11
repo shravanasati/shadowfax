@@ -117,7 +117,59 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		return nil, err
 	}
 
-	return &Request{RequestLine: *requestLine, Headers: *headers, reader: reader, Query: q}, nil
+	req := &Request{RequestLine: *requestLine, Headers: *headers, reader: scanner.GetReader(), Query: q}
+
+	err = validateFraming(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+var nonMergeableHeaders = []string{
+	"content-length",
+	"host",
+	"authorization",
+	"proxy-authorization",
+	"content-type",
+	"retry-after",
+	"etag",
+	"last-modified",
+	"location",
+}
+
+
+func validateFraming(req *Request) error {
+	hostVal := req.Headers.Get("host")
+	if hostVal == "" {
+		return ErrInvalidFraming
+	}
+
+	for _, hed := range nonMergeableHeaders {
+		hedVal := req.Headers.Get(hed)
+		if len(strings.Split(hedVal, ",")) > 1 {
+			// more than one non-mergeable headers not allowed
+			return ErrInvalidFraming
+		}
+	}
+
+	if req.Headers.Get("content-length") != "" && req.Headers.Get("transfer-encoding") != "" {
+		// requests containing both content length and transfer encoding
+		// headers MAY be rejected by the server as per the RFC
+		// https://datatracker.ietf.org/doc/html/rfc9112#section-6.1-15
+		// we're going to reject it
+		return ErrInvalidFraming
+	}
+
+	_, err := req.TransferEncodings()
+	if err != nil {
+		// last transfer encoding must be chunked
+		// https://datatracker.ietf.org/doc/html/rfc9112#section-6.3-2.4.3
+		return err
+	}
+
+	return nil
 }
 
 func (r *Request) ContentLength() int64 {
@@ -167,6 +219,24 @@ func (r *Request) TransferEncodings() ([]string, error) {
 	return nil, nil
 }
 
+var denyTrailers = []string{
+	"content-length",
+	"transfer-encoding",
+	"trailer",
+	"host",
+	"connection",
+	"proxy-connection",
+	"upgrade",
+	"keep-alive",
+	"authorization",
+	"proxy-authorization",
+	"content-type",
+	"content-encoding",
+	"expect",
+	"max-forward",
+	"te",
+}
+
 // Body returns an [io.ReadCloser] for the request body.
 // Make sure to close the body after it has been used.
 func (r *Request) Body() (io.ReadCloser, error) {
@@ -187,8 +257,14 @@ func (r *Request) Body() (io.ReadCloser, error) {
 				}
 				r.Headers.Remove("content-length")
 				r.Headers.Add("content-length", strconv.Itoa(buf.Len()))
+				allowedTrailers := strings.Split(r.Headers.Get("trailer"), ",")
+				for i := range allowedTrailers {
+					allowedTrailers[i] = headers.NormalizeKey(allowedTrailers[i])
+				}
 				for k, v := range trailers.All() {
-					r.Headers.Add(k, v)
+					if slices.Contains(allowedTrailers, k) && !slices.Contains(denyTrailers, k) {
+						r.Headers.Add(k, v)
+					}
 				}
 				r.reader = buf
 			default:

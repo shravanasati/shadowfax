@@ -16,3 +16,6 @@ var ErrBodyTooLong = errors.New("body length exceeds content-length")
 
 // ErrNotImplemented is returned when a transfer encoding is not implemented.
 var ErrNotImplemented = errors.New("transfer encoding not implemented")
+
+// ErrInvalidFraming is returned when the request fails the RFC standards.
+var ErrInvalidFraming = errors.New("invalid request framing")

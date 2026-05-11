@@ -1,18 +1,25 @@
 package request
 
 import (
-	"bytes"
+	"bufio"
 	"io"
 )
 
 type crlfReader struct {
-	buf    bytes.Buffer
-	reader io.Reader
+	reader *bufio.Reader
 	atEOF  bool
 }
 
 func newCRLFReader(r io.Reader) *crlfReader {
-	return &crlfReader{reader: r}
+	// Check if already buffered
+	if br, ok := r.(*bufio.Reader); ok {
+		return &crlfReader{reader: br}
+	}
+	return &crlfReader{reader: bufio.NewReader(r)}
+}
+
+func (cr *crlfReader) GetReader() io.Reader {
+	return cr.reader
 }
 
 func (cr *crlfReader) Done() bool {
@@ -24,52 +31,30 @@ func (cr *crlfReader) Read() ([]byte, error) {
 		return nil, io.EOF
 	}
 
-	if cr.reader == nil {
-		return nil, io.EOF
-	}
+	// ReadBytes returns all bytes up to and including the delimiter
+	// We read until '\n' and check that the preceding byte is '\r'
+	line, err := cr.reader.ReadBytes('\n')
 
-	var line []byte
-	var foundCR bool
-
-	for {
-		// Read one byte at a time into buffer
-		b := make([]byte, 1)
-		n, err := cr.reader.Read(b)
-
-		if err != nil {
-			if err == io.EOF {
-				cr.atEOF = true
-				// If we have data in the line, return it
-				if len(line) > 0 {
-					return line, nil
-				}
-				// flush the buffer
-				return cr.buf.Bytes(), io.EOF
-			}
-			return nil, err
-		}
-
-		if n > 0 {
-			// Write the byte to buffer
-			cr.buf.Write(b)
-
-			// Look strictly for CRLF (\r\n)
-			if foundCR && b[0] == '\n' {
-				// Found complete CRLF, get the line from buffer (excluding CRLF)
-				bufBytes := cr.buf.Bytes()
-				// Return everything except the last 2 bytes (\r\n)
-				line = make([]byte, len(bufBytes)-2)
-				copy(line, bufBytes[:len(bufBytes)-2])
-				cr.buf.Reset()
+	if err != nil {
+		if err == io.EOF {
+			cr.atEOF = true
+			if len(line) > 0 {
 				return line, nil
 			}
-
-			if b[0] == '\r' {
-				// Found CR, wait for LF
-				foundCR = true
-			} else {
-				foundCR = false
-			}
+			return nil, io.EOF
 		}
+		return nil, err
 	}
+
+	// Verify and strip CRLF (\r\n)
+	if len(line) >= 2 && line[len(line)-2] == '\r' && line[len(line)-1] == '\n' {
+		return line[:len(line)-2], nil
+	}
+
+	// If CRLF not found, this is malformed but return as-is for error handling
+	if line[len(line)-1] == '\n' {
+		return line[:len(line)-1], nil
+	}
+
+	return line, nil
 }

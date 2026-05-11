@@ -43,8 +43,8 @@ func isValidFieldValue(val []byte) bool {
 	return true
 }
 
-func normalizeKey(key string) string {
-	return strings.ToLower(key)
+func NormalizeKey(key string) string {
+	return strings.ToLower(strings.TrimSpace(key))
 }
 
 // Add adds a new header. If the header already exists, the new value is appended to the existing value, separated by a comma.
@@ -54,7 +54,7 @@ func (h *Headers) Add(key, value string) {
 		return
 	}
 
-	key = normalizeKey(key)
+	key = NormalizeKey(key)
 	if existing, ok := h.headers[key]; ok {
 		// multiple values
 		h.headers[key] = existing + ", " + value
@@ -65,13 +65,13 @@ func (h *Headers) Add(key, value string) {
 
 // Get returns the value of a header.
 func (h *Headers) Get(key string) string {
-	key = normalizeKey(key)
+	key = NormalizeKey(key)
 	return h.headers[key]
 }
 
 // Remove removes a header.
 func (h *Headers) Remove(key string) {
-	delete(h.headers, normalizeKey(key))
+	delete(h.headers, NormalizeKey(key))
 }
 
 // Set sets a header value, as opposed to Add which appends the value if it alredy exists.
@@ -81,7 +81,7 @@ func (h *Headers) Set(key, value string) {
 		return
 	}
 
-	key = normalizeKey(key)
+	key = NormalizeKey(key)
 	h.headers[key] = value
 }
 

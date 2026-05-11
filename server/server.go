@@ -104,32 +104,6 @@ func (s *Server) handle(conn net.Conn) {
 			break
 		}
 
-		hostHeader := req.Headers.Get("host")
-		if hostHeader == "" || len(strings.Split(hostHeader, ",")) > 1 {
-			// more than one hosts not allowed
-			badReqResponse.Write(conn)
-			shouldCloseConn = true
-			break
-		}
-
-		if req.Headers.Get("content-length") != "" && req.Headers.Get("transfer-encoding") != "" {
-			// requests containing both content length and transfer encoding
-			// headers MAY be rejected by the server as per the RFC
-			// https://datatracker.ietf.org/doc/html/rfc9112#section-6.1-15
-			// we're going to reject it
-			badReqResponse.Write(conn)
-			shouldCloseConn = true
-			break
-		}
-
-		_, err = req.TransferEncodings()
-		if err != nil {
-			// last transfer encoding must be chunked
-			// https://datatracker.ietf.org/doc/html/rfc9112#section-6.3-2.4.3
-			badReqResponse.Write(conn)
-			shouldCloseConn = true
-			break
-		}
 
 		resp := s.handler(req)
 		resp.GetHeaders().Remove("date")

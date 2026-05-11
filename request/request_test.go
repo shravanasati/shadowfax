@@ -111,10 +111,8 @@ func TestHeadersParse(t *testing.T) {
 		numBytesPerRead: 2,
 	}
 	r, err = RequestFromReader(reader)
-	require.NoError(t, err)
-	require.NotNil(t, r)
-	host = r.Headers.Get("host")
-	assert.Equal(t, "", host) // Should return empty string for missing header
+	require.Error(t, err) // no host field
+	require.Nil(t, r)
 
 	// Test: Malformed Header
 	reader = &chunkReader{
@@ -126,7 +124,7 @@ func TestHeadersParse(t *testing.T) {
 
 	// Test: Duplicate Headers
 	reader = &chunkReader{
-		data:            "GET / HTTP/1.1\r\nAccept: text/html\r\nAccept: application/json\r\n\r\n",
+		data:            "GET / HTTP/1.1\r\nHost: smth\r\nAccept: text/html\r\nAccept: application/json\r\n\r\n",
 		numBytesPerRead: 5,
 	}
 	r, err = RequestFromReader(reader)
@@ -482,13 +480,9 @@ func TestUnsupportedTransferEncodings(t *testing.T) {
 		numBytesPerRead: 4,
 	}
 	r, err := RequestFromReader(reader)
-	require.NoError(t, err) // Request parsing should succeed
-	require.NotNil(t, r)
-
-	// Error should occur when trying to read the body
-	_, err = r.Body()
-	require.Error(t, err)
 	assert.Equal(t, ErrNotImplemented, err)
+	require.Nil(t, r)
+
 
 	// Test: Deflate transfer encoding should return not implemented error when body is read
 	reader = &chunkReader{
@@ -500,13 +494,9 @@ func TestUnsupportedTransferEncodings(t *testing.T) {
 		numBytesPerRead: 3,
 	}
 	r, err = RequestFromReader(reader)
-	require.NoError(t, err) // Request parsing should succeed
-	require.NotNil(t, r)
-
-	// Error should occur when trying to read the body
-	_, err = r.Body()
-	require.Error(t, err)
 	assert.Equal(t, ErrNotImplemented, err)
+	require.Nil(t, r)
+
 
 	// Test: Compress transfer encoding should return not implemented error when body is read
 	reader = &chunkReader{
@@ -518,13 +508,9 @@ func TestUnsupportedTransferEncodings(t *testing.T) {
 		numBytesPerRead: 5,
 	}
 	r, err = RequestFromReader(reader)
-	require.NoError(t, err) // Request parsing should succeed
-	require.NotNil(t, r)
-
-	// Error should occur when trying to read the body
-	_, err = r.Body()
-	require.Error(t, err)
 	assert.Equal(t, ErrNotImplemented, err)
+	require.Nil(t, r)
+
 
 	// Test: Multiple transfer encodings with unsupported encoding
 	reader = &chunkReader{
@@ -536,11 +522,6 @@ func TestUnsupportedTransferEncodings(t *testing.T) {
 		numBytesPerRead: 4,
 	}
 	r, err = RequestFromReader(reader)
-	require.NoError(t, err) // Request parsing should succeed
-	require.NotNil(t, r)
-
-	// Error should occur when trying to read the body
-	_, err = r.Body()
 	require.Error(t, err)
 	assert.Equal(t, ErrNotImplemented, err)
 
@@ -554,11 +535,6 @@ func TestUnsupportedTransferEncodings(t *testing.T) {
 		numBytesPerRead: 6,
 	}
 	r, err = RequestFromReader(reader)
-	require.NoError(t, err) // Request parsing should succeed
-	require.NotNil(t, r)
-
-	// Error should occur when trying to read the body
-	_, err = r.Body()
 	require.Error(t, err)
 	assert.Equal(t, ErrNotImplemented, err)
 
@@ -572,11 +548,114 @@ func TestUnsupportedTransferEncodings(t *testing.T) {
 		numBytesPerRead: 3,
 	}
 	r, err = RequestFromReader(reader)
-	require.NoError(t, err) // Request parsing should succeed
-	require.NotNil(t, r)
-
-	// Error should occur when trying to read the body
-	_, err = r.Body()
 	require.Error(t, err)
 	assert.Equal(t, ErrNotImplemented, err)
+}
+
+func TestInvalidFraming(t *testing.T) {
+	// Test: Both Content-Length and Transfer-Encoding: chunked
+	reader := &chunkReader{
+		data: "POST /submit HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Content-Length: 10\r\n" +
+			"Transfer-Encoding: chunked\r\n" +
+			"\r\n" +
+			"0\r\n\r\n",
+		numBytesPerRead: 5,
+	}
+	_, err := RequestFromReader(reader)
+	require.Error(t, err)
+	assert.Equal(t, ErrInvalidFraming, err)
+
+	// Test: Duplicate Content-Length headers with same value (should be allowed or normalized, but RFC says reject if multiple)
+	// Actually RFC 9112 Section 6.1 says "If a message is received that has multiple Content-Length header fields... then the message occurs in one of the following cases: (etc)"
+	// In our implementation, headers.Add appends with comma.
+	reader = &chunkReader{
+		data: "POST /submit HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Content-Length: 10\r\n" +
+			"Content-Length: 10\r\n" +
+			"\r\n" +
+			"1234567890",
+		numBytesPerRead: 5,
+	}
+	_, err = RequestFromReader(reader)
+	require.Error(t, err, "Should reject duplicate Content-Length headers")
+
+	// Test: Duplicate Content-Length headers with different values
+	reader = &chunkReader{
+		data: "POST /submit HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Content-Length: 10\r\n" +
+			"Content-Length: 20\r\n" +
+			"\r\n" +
+			"1234567890",
+		numBytesPerRead: 5,
+	}
+	_, err = RequestFromReader(reader)
+	require.Error(t, err, "Should reject duplicate Content-Length headers with different values")
+
+	// Test: Multiple Host headers
+	reader = &chunkReader{
+		data: "GET / HTTP/1.1\r\n" +
+			"Host: example.com\r\n" +
+			"Host: example.org\r\n" +
+			"\r\n",
+		numBytesPerRead: 5,
+	}
+	_, err = RequestFromReader(reader)
+	require.Error(t, err, "Should reject multiple Host headers")
+
+	// Test: Transfer-Encoding last encoding is not chunked
+	reader = &chunkReader{
+		data: "POST / HTTP/1.1\r\n" +
+			"Host: localhost\r\n" +
+			"Transfer-Encoding: chunked, gzip\r\n" +
+			"\r\n" +
+			"body",
+		numBytesPerRead: 5,
+	}
+	_, err = RequestFromReader(reader)
+	require.Error(t, err, "Should reject if chunked is not the last Transfer-Encoding")
+}
+
+func TestInvalidTrailers(t *testing.T) {
+	// Test: Restricted trailer headers (e.g., Transfer-Encoding, Content-Length, Host, etc.)
+	// RFC 9110 Section 6.5.1: A sender MUST NOT generate a trailer section that contains any of the following fields:
+	// - Fields used for message framing (e.g., Transfer-Encoding, Content-Length, etc.)
+	// - Fields used for routing/reachability (e.g., Host, etc.)
+	// - Authentication/credentials (e.g., Authorization, etc.)
+	// - Control fields (e.g., Cache-Control, Max-Forwards, etc.)
+
+	restrictedTrailers := []string{
+		"Transfer-Encoding",
+		"Authorization",
+		"Cache-Control",
+	}
+
+	for _, header := range restrictedTrailers {
+		t.Run("RestrictedTrailer_"+header, func(t *testing.T) {
+			reader := &chunkReader{
+				data: "POST /upload HTTP/1.1\r\n" +
+					"Host: localhost:42069\r\n" +
+					"Transfer-Encoding: chunked\r\n" +
+					"\r\n" +
+					"4\r\n" +
+					"test\r\n" +
+					"0\r\n" +
+					header + ": some-value\r\n" +
+					"\r\n",
+				numBytesPerRead: 5,
+			}
+			r, err := RequestFromReader(reader)
+			require.NoError(t, err)
+
+			body, err := r.Body()
+			require.NoError(t, err)
+			_, err = io.ReadAll(body)
+			require.NoError(t, err)
+
+			assert.Empty(t, r.Headers.Get(header), "Header "+header+" should not be added from trailer")
+		})
+	}
 }
