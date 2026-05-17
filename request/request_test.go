@@ -427,7 +427,9 @@ func TestChunkedTransferEncoding(t *testing.T) {
 	require.NotNil(t, r)
 
 	// Error should occur when trying to read the body
-	_, err = r.Body()
+	bodyReader, err = r.Body()
+	require.NoError(t, err)
+	_, err = io.ReadAll(bodyReader)
 	require.Error(t, err)
 
 	// Test: Missing final chunk
@@ -445,7 +447,9 @@ func TestChunkedTransferEncoding(t *testing.T) {
 	require.NotNil(t, r)
 
 	// Error should occur when trying to read the body
-	_, err = r.Body()
+	bodyReader, err = r.Body()
+	require.NoError(t, err)
+	_, err = io.ReadAll(bodyReader)
 	require.Error(t, err)
 
 	// Test: Chunk data shorter than declared size
@@ -465,7 +469,9 @@ func TestChunkedTransferEncoding(t *testing.T) {
 	require.NotNil(t, r)
 
 	// Error should occur when trying to read the body
-	_, err = r.Body()
+	bodyReader, err = r.Body()
+	require.NoError(t, err)
+	_, err = io.ReadAll(bodyReader)
 	require.Error(t, err)
 }
 
@@ -483,7 +489,6 @@ func TestUnsupportedTransferEncodings(t *testing.T) {
 	assert.Equal(t, ErrNotImplemented, err)
 	require.Nil(t, r)
 
-
 	// Test: Deflate transfer encoding should return not implemented error when body is read
 	reader = &chunkReader{
 		data: "POST /upload HTTP/1.1\r\n" +
@@ -497,7 +502,6 @@ func TestUnsupportedTransferEncodings(t *testing.T) {
 	assert.Equal(t, ErrNotImplemented, err)
 	require.Nil(t, r)
 
-
 	// Test: Compress transfer encoding should return not implemented error when body is read
 	reader = &chunkReader{
 		data: "POST /upload HTTP/1.1\r\n" +
@@ -510,7 +514,6 @@ func TestUnsupportedTransferEncodings(t *testing.T) {
 	r, err = RequestFromReader(reader)
 	assert.Equal(t, ErrNotImplemented, err)
 	require.Nil(t, r)
-
 
 	// Test: Multiple transfer encodings with unsupported encoding
 	reader = &chunkReader{

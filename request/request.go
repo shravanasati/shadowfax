@@ -2,6 +2,7 @@ package request
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -139,7 +140,6 @@ var nonMergeableHeaders = []string{
 	"location",
 }
 
-
 func validateFraming(req *Request) error {
 	hostVal := req.Headers.Get("host")
 	if hostVal == "" {
@@ -237,9 +237,40 @@ var denyTrailers = []string{
 	"te",
 }
 
+type chunkedBodyReader struct {
+	cr  *chunkedReader
+	req *Request
+}
+
+func (cbr *chunkedBodyReader) Read(p []byte) (n int, err error) {
+	n, err = cbr.cr.Read(p)
+	if errors.Is(err, io.EOF) {
+		cbr.req.Headers.Set("content-length", strconv.Itoa(cbr.cr.Consumed()))
+		// Update headers with trailers
+		allowedTrailers := strings.Split(cbr.req.Headers.Get("trailer"), ",")
+		for i := range allowedTrailers {
+			allowedTrailers[i] = headers.NormalizeKey(allowedTrailers[i])
+		}
+		for k, v := range cbr.cr.Trailers().All() {
+			if slices.Contains(allowedTrailers, k) && !slices.Contains(denyTrailers, k) {
+				cbr.req.Headers.Add(k, v)
+			}
+		}
+	}
+	return n, err
+}
+
+func (cbr *chunkedBodyReader) Close() error {
+	return cbr.cr.Close()
+}
+
 // Body returns an [io.ReadCloser] for the request body.
 // Make sure to close the body after it has been used.
 func (r *Request) Body() (io.ReadCloser, error) {
+	if br, ok := r.reader.(io.ReadCloser); ok {
+		return br, nil
+	}
+
 	// check for chunked transfer encoding header first
 	tencs, err := r.TransferEncodings()
 	if err != nil {
@@ -251,29 +282,14 @@ func (r *Request) Body() (io.ReadCloser, error) {
 			switch enc {
 			case "chunked":
 				cr := newChunkedReader(r.reader)
-				buf, trailers, err := cr.Decode()
-				if err != nil {
-					return nil, err
-				}
-				r.Headers.Remove("content-length")
-				r.Headers.Add("content-length", strconv.Itoa(buf.Len()))
-				allowedTrailers := strings.Split(r.Headers.Get("trailer"), ",")
-				for i := range allowedTrailers {
-					allowedTrailers[i] = headers.NormalizeKey(allowedTrailers[i])
-				}
-				for k, v := range trailers.All() {
-					if slices.Contains(allowedTrailers, k) && !slices.Contains(denyTrailers, k) {
-						r.Headers.Add(k, v)
-					}
-				}
-				r.reader = buf
+				cbr := &chunkedBodyReader{cr: cr, req: r}
+				r.reader = cbr
+				r.Headers.Remove("transfer-encoding")
+				return cbr, nil
 			default:
 				return nil, ErrNotImplemented
 			}
 		}
-		// removing the header entirely because unrecognized encodings already
-		// return not implemented error
-		r.Headers.Remove("transfer-encoding")
 	}
 
 	// check for content-length header next
