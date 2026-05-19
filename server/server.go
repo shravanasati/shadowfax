@@ -96,7 +96,7 @@ func (s *Server) handle(conn net.Conn) {
 		}
 
 		badReqResponse := response.NewBaseResponse().WithStatusCode(response.StatusBadRequest)
-		req, err := request.RequestFromReader(conn)
+		req, err := request.RequestFromReader(conn, s.opts.SizeLimits)
 		if err != nil {
 			// invalid request
 			badReqResponse.Write(conn)
@@ -152,6 +152,10 @@ func newServer(opts ServerOpts, handler Handler) *Server {
 	if opts.Address == "" {
 		opts.Address = ":42069"
 	}
+	if opts.SizeLimits == nil {
+		opts.SizeLimits = &request.DefaultSizeLimits
+	}
+
 	return &Server{
 		opts:    opts,
 		handler: handler,

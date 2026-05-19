@@ -2,6 +2,7 @@ package request
 
 import (
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,7 +34,7 @@ func TestRequestLineParse(t *testing.T) {
 		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 3,
 	}
-	r, err := RequestFromReader(reader)
+	r, err := RequestFromReader(reader, nil)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	assert.Equal(t, "GET", r.RequestLine.Method)
@@ -45,7 +46,7 @@ func TestRequestLineParse(t *testing.T) {
 		data:            "GET /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 1,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	assert.Equal(t, "GET", r.RequestLine.Method)
@@ -57,7 +58,7 @@ func TestRequestLineParse(t *testing.T) {
 		data:            "/coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 5,
 	}
-	_, err = RequestFromReader(reader)
+	_, err = RequestFromReader(reader, nil)
 	require.Error(t, err)
 
 	// Test: Good POST Request with path
@@ -65,7 +66,7 @@ func TestRequestLineParse(t *testing.T) {
 		data:            "POST /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 4,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	assert.Equal(t, "POST", r.RequestLine.Method)
@@ -77,7 +78,7 @@ func TestRequestLineParse(t *testing.T) {
 		data:            "HTTP/1.1 GET /\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 2,
 	}
-	_, err = RequestFromReader(reader)
+	_, err = RequestFromReader(reader, nil)
 	require.Error(t, err)
 
 	// Test: Invalid version in Request line
@@ -85,7 +86,7 @@ func TestRequestLineParse(t *testing.T) {
 		data:            "GET / HTTP/1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 6,
 	}
-	_, err = RequestFromReader(reader)
+	_, err = RequestFromReader(reader, nil)
 	require.Error(t, err)
 }
 
@@ -95,7 +96,7 @@ func TestHeadersParse(t *testing.T) {
 		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 3,
 	}
-	r, err := RequestFromReader(reader)
+	r, err := RequestFromReader(reader, nil)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	host := r.Headers.Get("host")
@@ -110,7 +111,7 @@ func TestHeadersParse(t *testing.T) {
 		data:            "GET / HTTP/1.1\r\n\r\n",
 		numBytesPerRead: 2,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.Error(t, err) // no host field
 	require.Nil(t, r)
 
@@ -119,7 +120,7 @@ func TestHeadersParse(t *testing.T) {
 		data:            "GET / HTTP/1.1\r\nHost localhost:42069\r\n\r\n",
 		numBytesPerRead: 3,
 	}
-	_, err = RequestFromReader(reader)
+	_, err = RequestFromReader(reader, nil)
 	require.Error(t, err)
 
 	// Test: Duplicate Headers
@@ -127,7 +128,7 @@ func TestHeadersParse(t *testing.T) {
 		data:            "GET / HTTP/1.1\r\nHost: smth\r\nAccept: text/html\r\nAccept: application/json\r\n\r\n",
 		numBytesPerRead: 5,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	accept = r.Headers.Get("accept")
@@ -138,7 +139,7 @@ func TestHeadersParse(t *testing.T) {
 		data:            "GET / HTTP/1.1\r\nHOST: localhost:42069\r\nuser-agent: curl/7.81.0\r\n\r\n",
 		numBytesPerRead: 4,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	host = r.Headers.Get("host")
@@ -151,7 +152,7 @@ func TestHeadersParse(t *testing.T) {
 		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\n",
 		numBytesPerRead: 3,
 	}
-	_, err = RequestFromReader(reader)
+	_, err = RequestFromReader(reader, nil)
 	require.Error(t, err)
 }
 
@@ -165,7 +166,7 @@ func TestBodyParse(t *testing.T) {
 			"hello world!\n",
 		numBytesPerRead: 3,
 	}
-	r, err := RequestFromReader(reader)
+	r, err := RequestFromReader(reader, nil)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	bodyReader, err := r.Body()
@@ -183,7 +184,7 @@ func TestBodyParse(t *testing.T) {
 			"\r\n",
 		numBytesPerRead: 2,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	bodyReader, err = r.Body()
@@ -202,7 +203,7 @@ func TestBodyParse(t *testing.T) {
 			"partial content",
 		numBytesPerRead: 3,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	bodyReader, err = r.Body()
@@ -220,7 +221,7 @@ func TestBodyParse(t *testing.T) {
 			"hello world extra data",
 		numBytesPerRead: 4,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	bodyReader, err = r.Body()
@@ -238,7 +239,7 @@ func TestBodyParse(t *testing.T) {
 			"body without content length",
 		numBytesPerRead: 5,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	bodyReader, err = r.Body()
@@ -257,7 +258,7 @@ func TestBodyParse(t *testing.T) {
 			"some body",
 		numBytesPerRead: 6,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.NoError(t, err) // Request parsing should succeed
 	require.NotNil(t, r)
 	bodyReader, err = r.Body()
@@ -285,7 +286,7 @@ func TestChunkedTransferEncoding(t *testing.T) {
 			"\r\n",
 		numBytesPerRead: 4,
 	}
-	r, err := RequestFromReader(reader)
+	r, err := RequestFromReader(reader, nil)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
@@ -319,7 +320,7 @@ func TestChunkedTransferEncoding(t *testing.T) {
 			"\r\n",
 		numBytesPerRead: 3,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
@@ -354,7 +355,7 @@ func TestChunkedTransferEncoding(t *testing.T) {
 			"\r\n",
 		numBytesPerRead: 5,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
@@ -390,7 +391,7 @@ func TestChunkedTransferEncoding(t *testing.T) {
 			"\r\n",
 		numBytesPerRead: 2,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
@@ -422,7 +423,7 @@ func TestChunkedTransferEncoding(t *testing.T) {
 			"\r\n",
 		numBytesPerRead: 3,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.NoError(t, err) // Request parsing should succeed
 	require.NotNil(t, r)
 
@@ -442,7 +443,7 @@ func TestChunkedTransferEncoding(t *testing.T) {
 			"hello\r\n",
 		numBytesPerRead: 4,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.NoError(t, err) // Request parsing should succeed
 	require.NotNil(t, r)
 
@@ -464,7 +465,7 @@ func TestChunkedTransferEncoding(t *testing.T) {
 			"\r\n",
 		numBytesPerRead: 3,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.NoError(t, err) // Request parsing should succeed
 	require.NotNil(t, r)
 
@@ -485,7 +486,7 @@ func TestUnsupportedTransferEncodings(t *testing.T) {
 			"some gzipped content here",
 		numBytesPerRead: 4,
 	}
-	r, err := RequestFromReader(reader)
+	r, err := RequestFromReader(reader, nil)
 	assert.Equal(t, ErrNotImplemented, err)
 	require.Nil(t, r)
 
@@ -498,7 +499,7 @@ func TestUnsupportedTransferEncodings(t *testing.T) {
 			"some deflated content here",
 		numBytesPerRead: 3,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	assert.Equal(t, ErrNotImplemented, err)
 	require.Nil(t, r)
 
@@ -511,7 +512,7 @@ func TestUnsupportedTransferEncodings(t *testing.T) {
 			"some compressed content here",
 		numBytesPerRead: 5,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	assert.Equal(t, ErrNotImplemented, err)
 	require.Nil(t, r)
 
@@ -524,7 +525,7 @@ func TestUnsupportedTransferEncodings(t *testing.T) {
 			"some content here",
 		numBytesPerRead: 4,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.Error(t, err)
 	assert.Equal(t, ErrNotImplemented, err)
 
@@ -537,7 +538,7 @@ func TestUnsupportedTransferEncodings(t *testing.T) {
 			"some custom encoded content here",
 		numBytesPerRead: 6,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.Error(t, err)
 	assert.Equal(t, ErrNotImplemented, err)
 
@@ -550,7 +551,7 @@ func TestUnsupportedTransferEncodings(t *testing.T) {
 			"some gzipped content here",
 		numBytesPerRead: 3,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = RequestFromReader(reader, nil)
 	require.Error(t, err)
 	assert.Equal(t, ErrNotImplemented, err)
 }
@@ -566,7 +567,7 @@ func TestInvalidFraming(t *testing.T) {
 			"0\r\n\r\n",
 		numBytesPerRead: 5,
 	}
-	_, err := RequestFromReader(reader)
+	_, err := RequestFromReader(reader, nil)
 	require.Error(t, err)
 	assert.Equal(t, ErrInvalidFraming, err)
 
@@ -582,7 +583,7 @@ func TestInvalidFraming(t *testing.T) {
 			"1234567890",
 		numBytesPerRead: 5,
 	}
-	_, err = RequestFromReader(reader)
+	_, err = RequestFromReader(reader, nil)
 	require.Error(t, err, "Should reject duplicate Content-Length headers")
 
 	// Test: Duplicate Content-Length headers with different values
@@ -595,7 +596,7 @@ func TestInvalidFraming(t *testing.T) {
 			"1234567890",
 		numBytesPerRead: 5,
 	}
-	_, err = RequestFromReader(reader)
+	_, err = RequestFromReader(reader, nil)
 	require.Error(t, err, "Should reject duplicate Content-Length headers with different values")
 
 	// Test: Multiple Host headers
@@ -606,7 +607,7 @@ func TestInvalidFraming(t *testing.T) {
 			"\r\n",
 		numBytesPerRead: 5,
 	}
-	_, err = RequestFromReader(reader)
+	_, err = RequestFromReader(reader, nil)
 	require.Error(t, err, "Should reject multiple Host headers")
 
 	// Test: Transfer-Encoding last encoding is not chunked
@@ -618,7 +619,7 @@ func TestInvalidFraming(t *testing.T) {
 			"body",
 		numBytesPerRead: 5,
 	}
-	_, err = RequestFromReader(reader)
+	_, err = RequestFromReader(reader, nil)
 	require.Error(t, err, "Should reject if chunked is not the last Transfer-Encoding")
 }
 
@@ -650,7 +651,7 @@ func TestInvalidTrailers(t *testing.T) {
 					"\r\n",
 				numBytesPerRead: 5,
 			}
-			r, err := RequestFromReader(reader)
+			r, err := RequestFromReader(reader, nil)
 			require.NoError(t, err)
 
 			body, err := r.Body()
@@ -661,4 +662,116 @@ func TestInvalidTrailers(t *testing.T) {
 			assert.Empty(t, r.Headers.Get(header), "Header "+header+" should not be added from trailer")
 		})
 	}
+}
+
+func TestSizeLimits(t *testing.T) {
+	t.Run("request line too large", func(t *testing.T) {
+		limits := &SizeLimits{MaxRequestLine: 10}
+		reader := &chunkReader{
+			data:            "GET /toolong HTTP/1.1\r\nHost: a\r\n\r\n",
+			numBytesPerRead: 4,
+		}
+		_, err := RequestFromReader(reader, limits)
+		require.ErrorIs(t, err, ErrRequestLineTooLarge)
+	})
+
+	t.Run("header line too large", func(t *testing.T) {
+		limits := &SizeLimits{MaxHeaderLine: 5}
+		reader := &chunkReader{
+			data:            "GET / HTTP/1.1\r\nHost: a\r\n\r\n",
+			numBytesPerRead: 4,
+		}
+		_, err := RequestFromReader(reader, limits)
+		require.ErrorIs(t, err, ErrHeaderLineTooLarge)
+	})
+
+	t.Run("headers too large", func(t *testing.T) {
+		limits := &SizeLimits{MaxHeaders: 10}
+		reader := &chunkReader{
+			data:            "GET / HTTP/1.1\r\nHost: a\r\nX: b\r\n\r\n",
+			numBytesPerRead: 4,
+		}
+		_, err := RequestFromReader(reader, limits)
+		require.ErrorIs(t, err, ErrHeadersTooLarge)
+	})
+
+	t.Run("chunk too large", func(t *testing.T) {
+		limits := &SizeLimits{MaxChunkSize: 4}
+		reader := &chunkReader{
+			data: "POST /upload HTTP/1.1\r\n" +
+				"Host: localhost:42069\r\n" +
+				"Transfer-Encoding: chunked\r\n" +
+				"\r\n" +
+				"5\r\n" +
+				"hello\r\n" +
+				"0\r\n" +
+				"\r\n",
+			numBytesPerRead: 3,
+		}
+		req, err := RequestFromReader(reader, limits)
+		require.NoError(t, err)
+		body, err := req.Body()
+		require.NoError(t, err)
+		_, err = io.ReadAll(body)
+		require.ErrorIs(t, err, ErrChunkTooLarge)
+	})
+
+	t.Run("chunked body too large", func(t *testing.T) {
+		limits := &SizeLimits{MaxBodySize: 5}
+		reader := &chunkReader{
+			data: "POST /upload HTTP/1.1\r\n" +
+				"Host: localhost:42069\r\n" +
+				"Transfer-Encoding: chunked\r\n" +
+				"\r\n" +
+				"3\r\n" +
+				"abc\r\n" +
+				"3\r\n" +
+				"def\r\n" +
+				"0\r\n" +
+				"\r\n",
+			numBytesPerRead: 2,
+		}
+		req, err := RequestFromReader(reader, limits)
+		require.NoError(t, err)
+		body, err := req.Body()
+		require.NoError(t, err)
+		_, err = io.ReadAll(body)
+		require.ErrorIs(t, err, ErrBodyTooLarge)
+	})
+
+	t.Run("request line limit exact", func(t *testing.T) {
+		limits := &SizeLimits{MaxRequestLine: 14}
+		reader := &chunkReader{
+			data:            "GET / HTTP/1.1\r\nHost: a\r\n\r\n",
+			numBytesPerRead: 4,
+		}
+		_, err := RequestFromReader(reader, limits)
+		require.NoError(t, err)
+	})
+
+	t.Run("header line limit exact", func(t *testing.T) {
+		limits := &SizeLimits{MaxHeaderLine: len("Host: a")}
+		reader := &chunkReader{
+			data:            "GET / HTTP/1.1\r\nHost: a\r\n\r\n",
+			numBytesPerRead: 4,
+		}
+		_, err := RequestFromReader(reader, limits)
+		require.NoError(t, err)
+	})
+
+	t.Run("headers total limit exact", func(t *testing.T) {
+		limits := &SizeLimits{MaxHeaders: 0}
+		headerLines := []string{"Host: a", "X: b"}
+		size := 0
+		for _, line := range headerLines {
+			size += len(line) + 2
+		}
+		limits.MaxHeaders = size
+		reader := &chunkReader{
+			data:            "GET / HTTP/1.1\r\n" + strings.Join(headerLines, "\r\n") + "\r\n\r\n",
+			numBytesPerRead: 4,
+		}
+		_, err := RequestFromReader(reader, limits)
+		require.NoError(t, err)
+	})
 }

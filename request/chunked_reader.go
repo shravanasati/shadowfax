@@ -26,13 +26,18 @@ type chunkedReader struct {
 	state         chunkState
 	trailers      *headers.Headers
 	err           error
+
+	maxChunkSize       int
+	maxChunksTotalSize int
 }
 
-func newChunkedReader(r io.Reader) *chunkedReader {
+func newChunkedReader(r io.Reader, sizelimits SizeLimits) *chunkedReader {
 	return &chunkedReader{
-		reader:   newCRLFReader(r),
+		reader:   newCRLFReader(r, sizelimits.MaxHeaderLine),
 		state:    stateHeader,
 		trailers: headers.NewHeaders(),
+		maxChunkSize: sizelimits.MaxChunkSize,
+		maxChunksTotalSize: sizelimits.MaxBodySize,
 	}
 }
 
@@ -65,6 +70,15 @@ func (cr *chunkedReader) Read(p []byte) (n int, err error) {
 				cr.err = err
 				return 0, err
 			}
+			if chunkSizeInt < 0 {
+				cr.err = ErrInvalidFraming
+				return 0, cr.err
+			}
+
+			if chunkSizeInt > cr.maxChunkSize {
+				cr.err = ErrChunkTooLarge
+				return 0, cr.err
+			}
 
 			cr.remainInChunk = chunkSizeInt
 			if cr.remainInChunk == 0 {
@@ -74,10 +88,22 @@ func (cr *chunkedReader) Read(p []byte) (n int, err error) {
 			}
 
 		case stateData:
+			remainingAllowed := cr.maxChunksTotalSize - cr.consumedBytes
+			if remainingAllowed <= 0 {
+				cr.err = ErrBodyTooLarge
+				return 0, cr.err
+			}
 			toRead := min(cr.remainInChunk, len(p))
+			if remainingAllowed < toRead {
+				toRead = remainingAllowed
+			}
 			n, err = cr.reader.GetReader().Read(p[:toRead])
 			cr.remainInChunk -= n
 			cr.consumedBytes += n
+			if cr.consumedBytes > cr.maxChunksTotalSize {
+				cr.err = ErrBodyTooLarge
+				return n, cr.err
+			}
 			if cr.remainInChunk == 0 {
 				cr.state = stateCRLF
 			}
@@ -159,6 +185,9 @@ func (cr *chunkedReader) Decode() (*bytes.Buffer, *headers.Headers, error) {
 	_, err := io.Copy(buf, cr)
 	if err != nil {
 		return nil, nil, err
+	}
+	if buf.Len() > cr.maxChunksTotalSize {
+		return nil, nil, ErrBodyTooLarge
 	}
 	return buf, cr.trailers, nil
 }

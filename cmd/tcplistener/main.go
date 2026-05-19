@@ -21,7 +21,7 @@ func main() {
 			panic(err)
 		}
 		fmt.Println("a connection has been accepted", conn.RemoteAddr().String())
-		req, err := request.RequestFromReader(conn)
+		req, err := request.RequestFromReader(conn, nil)
 		if err != nil {
 			fmt.Println("error parsing the request:", err)
 		} else {

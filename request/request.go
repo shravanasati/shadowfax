@@ -44,6 +44,7 @@ type Request struct {
 	PathParams map[string]string
 	Query      url.Values
 	reader     io.Reader
+	sizeLimits *SizeLimits
 }
 
 var requestLineRegex = regexp.MustCompile(`^(GET|POST|PUT|PATCH|OPTIONS|TRACE|DELETE|HEAD) ([^\s]*) HTTP\/1.1$`)
@@ -65,18 +66,27 @@ func parseRequestLine(reqLine []byte) (*RequestLine, error) {
 // The requests are lazily evaluated, only the request line and headers are parsed.
 // The body is parsed when the [Request.Body] method is called.
 // Any errors during the body parsing would be returned by the same method.
-func RequestFromReader(reader io.Reader) (*Request, error) {
+func RequestFromReader(reader io.Reader, sizeLimits *SizeLimits) (*Request, error) {
+	sizeLimits = fillEmptySizeLimits(sizeLimits)
+	maxCRLFBufferSize := max(sizeLimits.MaxHeaderLine, sizeLimits.MaxRequestLine)
 
 	lineCount := 0
 	requestLine := &RequestLine{}
 	headers := headers.NewHeaders()
 	var headersFinished bool
+	var headerBytes int
 
-	scanner := newCRLFReader(reader)
+	scanner := newCRLFReader(reader, maxCRLFBufferSize)
 
 	for !scanner.Done() {
 		token, err := scanner.Read()
 		if err != nil && err != io.EOF {
+			if errors.Is(err, ErrHeaderLineTooLarge) {
+				if lineCount == 0 {
+					return nil, ErrRequestLineTooLarge
+				}
+				return nil, ErrHeaderLineTooLarge
+			}
 			return nil, err
 		}
 		lineCount++
@@ -89,11 +99,21 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 			break
 		}
 		if lineCount == 1 {
+			if len(token) > sizeLimits.MaxRequestLine {
+				return nil, ErrRequestLineTooLarge
+			}
 			requestLine, err = parseRequestLine(token)
 			if err != nil {
 				return nil, err
 			}
 		} else {
+			if len(token) > sizeLimits.MaxHeaderLine {
+				return nil, ErrHeaderLineTooLarge
+			}
+			headerBytes += len(token) + 2
+			if headerBytes > sizeLimits.MaxHeaders {
+				return nil, ErrHeadersTooLarge
+			}
 			// we only parse the headers initially
 			// body will be parsed as requested by [Request.Body]
 			err := headers.ParseFieldLine(token)
@@ -118,7 +138,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		return nil, err
 	}
 
-	req := &Request{RequestLine: *requestLine, Headers: *headers, reader: scanner.GetReader(), Query: q}
+	req := &Request{RequestLine: *requestLine, Headers: *headers, reader: scanner.GetReader(), Query: q, sizeLimits: sizeLimits}
 
 	err = validateFraming(req)
 	if err != nil {
@@ -281,7 +301,7 @@ func (r *Request) Body() (io.ReadCloser, error) {
 		for _, enc := range tencs {
 			switch enc {
 			case "chunked":
-				cr := newChunkedReader(r.reader)
+				cr := newChunkedReader(r.reader, *r.sizeLimits)
 				cbr := &chunkedBodyReader{cr: cr, req: r}
 				r.reader = cbr
 				r.Headers.Remove("transfer-encoding")

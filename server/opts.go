@@ -5,6 +5,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/shravanasati/shadowfax/request"
 	"github.com/shravanasati/shadowfax/response"
 )
 
@@ -29,6 +30,8 @@ type ServerOpts struct {
 	// KeepAliveTimeout sets the idle timeout for keep-alive connections.
 	// If zero, keep-alive is disabled. Overrides read and write timeout.
 	KeepAliveTimeout time.Duration
+
+	SizeLimits *request.SizeLimits
 }
 
 var defaultRecovery = func(r any) response.Response {

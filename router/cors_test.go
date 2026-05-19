@@ -42,7 +42,7 @@ func assertHeaders(t *testing.T, resHeaders http.Header, expHeaders map[string]s
 func convertRequest(r *http.Request) *request.Request {
 	buf := bytes.NewBuffer([]byte{})
 	r.Write(buf)
-	req, err := request.RequestFromReader(buf)
+	req, err := request.RequestFromReader(buf, nil)
 	if err != nil {
 		panic("convertRequest: err should be nil: " + err.Error())
 	}

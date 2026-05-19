@@ -86,7 +86,7 @@ func TestRouter(t *testing.T) {
 			err := httpReq.Write(&buf)
 			assert.NoError(t, err)
 
-			req, err := request.RequestFromReader(&buf)
+			req, err := request.RequestFromReader(&buf, nil)
 			assert.NoError(t, err)
 
 			resp := handler(req)
@@ -121,7 +121,7 @@ func TestRouter_CustomNotFoundHandler(t *testing.T) {
 	err := httpReq.Write(&buf)
 	require.NoError(t, err)
 
-	req, err := request.RequestFromReader(&buf)
+	req, err := request.RequestFromReader(&buf, nil)
 	require.NoError(t, err)
 
 	// Execute the handler

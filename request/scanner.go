@@ -6,16 +6,18 @@ import (
 )
 
 type crlfReader struct {
-	reader *bufio.Reader
-	atEOF  bool
+	reader        *bufio.Reader
+	atEOF         bool
+	consumedBytes int
+	maxLineSize   int
 }
 
-func newCRLFReader(r io.Reader) *crlfReader {
+func newCRLFReader(r io.Reader, maxLineSize int) *crlfReader {
 	// Check if already buffered
 	if br, ok := r.(*bufio.Reader); ok {
-		return &crlfReader{reader: br}
+		return &crlfReader{reader: br, maxLineSize: maxLineSize}
 	}
-	return &crlfReader{reader: bufio.NewReader(r)}
+	return &crlfReader{reader: bufio.NewReader(r), maxLineSize: maxLineSize}
 }
 
 func (cr *crlfReader) GetReader() io.Reader {
@@ -31,11 +33,20 @@ func (cr *crlfReader) Read() ([]byte, error) {
 		return nil, io.EOF
 	}
 
-	// ReadBytes returns all bytes up to and including the delimiter
-	// We read until '\n' and check that the preceding byte is '\r'
-	line, err := cr.reader.ReadBytes('\n')
-
-	if err != nil {
+	// ReadSlice returns a fragment when the buffer is full; we append until newline.
+	var line []byte
+	for {
+		fragment, err := cr.reader.ReadSlice('\n')
+		line = append(line, fragment...)
+		if cr.maxLineSize > 0 && len(line) > cr.maxLineSize+2 {
+			return nil, ErrHeaderLineTooLarge
+		}
+		if err == nil {
+			break
+		}
+		if err == bufio.ErrBufferFull {
+			continue
+		}
 		if err == io.EOF {
 			cr.atEOF = true
 			if len(line) > 0 {
